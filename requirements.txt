@@ -5,3 +5,8 @@ seaborn
 numpy
 openpyxl
 xlsxwriter
+streamlit>=1.10.0
+pandas
+openpyxl
+matplotlib
+seaborn
