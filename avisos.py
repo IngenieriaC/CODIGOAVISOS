@@ -217,3 +217,237 @@ if uploaded_file:
             st.exception(e) # Muestra el traceback completo para depuración
 else:
     st.info("⬆️ Sube tu archivo `DATA2.XLSX` para empezar con el análisis.")
+
+
+# Set a nice style for plots
+sns.set_style('whitegrid')
+
+# --- Data Loading and Preprocessing ---
+@st.cache_data
+def load_data(uploaded_file):
+    if uploaded_file is not None:
+        try:
+            df = pd.read_excel(uploaded_file)
+            return df
+        except Exception as e:
+            st.error(f"Error al cargar el archivo: {e}")
+            return pd.DataFrame()
+    return pd.DataFrame()
+
+def preprocess_data(df):
+    if df.empty:
+        return df
+
+    # Convert 'Fecha de Registro' to datetime and extract year
+    df['Fecha de Registro'] = pd.to_datetime(df['Fecha de Registro'], errors='coerce')
+    df = df.dropna(subset=['Fecha de Registro'])
+    df['Año'] = df['Fecha de Registro'].dt.year
+
+    # Clean 'Costo Total'
+    df['Costo Total'] = df['Costo Total'].replace({'\$': '', ',': ''}, regex=True).astype(float)
+
+    # Clean 'Descripción' for categorization
+    def categorize_description(description):
+        description = str(description).lower()
+        if re.search(r'publicación|aviso|prensa|periódico|comunicado', description):
+            return 'Publicación/Aviso'
+        elif re.search(r'valla|pasacalle|pendón', description):
+            return 'Valla/Pasacalle/Pendón'
+        elif re.search(r'radio|emisora', description):
+            return 'Radio'
+        elif re.search(r'televisión|tv', description):
+            return 'Televisión'
+        elif re.search(r'redes sociales|digital|web|internet|página|email', description):
+            return 'Medio Digital/Web'
+        elif re.search(r'diseño|edición|impresión', description):
+            return 'Diseño/Impresión'
+        else:
+            return 'Otros'
+
+    df['Categoria'] = df['Descripción'].apply(categorize_description)
+    return df
+
+# --- CostosAvisosApp functionality (adapted for Streamlit) ---
+def costos_avisos_page(df_processed):
+    st.markdown("## Análisis de Costos y Avisos")
+
+    if df_processed.empty:
+        st.warning("No hay datos cargados para mostrar el análisis de costos y avisos.")
+        return
+
+    st.markdown("### Total de Costos por Año")
+    costo_por_año = df_processed.groupby('Año')['Costo Total'].sum().reset_index()
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sns.barplot(x='Año', y='Costo Total', data=costo_por_año, palette='viridis', ax=ax)
+    ax.set_title('Costo Total de Avisos por Año')
+    ax.set_xlabel('Año')
+    ax.set_ylabel('Costo Total')
+    ax.ticklabel_format(style='plain', axis='y') # Remove scientific notation
+    st.pyplot(fig)
+    st.dataframe(costo_por_año)
+
+    st.markdown("### Distribución de Costos por Categoría")
+    costo_por_categoria = df_processed.groupby('Categoria')['Costo Total'].sum().sort_values(ascending=False).reset_index()
+    fig, ax = plt.subplots(figsize=(12, 7))
+    sns.barplot(x='Costo Total', y='Categoria', data=costo_por_categoria, palette='magma', ax=ax)
+    ax.set_title('Costo Total por Categoría de Aviso')
+    ax.set_xlabel('Costo Total')
+    ax.set_ylabel('Categoría')
+    ax.ticklabel_format(style='plain', axis='x') # Remove scientific notation
+    st.pyplot(fig)
+    st.dataframe(costo_por_categoria)
+
+    st.markdown("### Top 10 Avisos más Costosos")
+    top_10_avisos = df_processed.nlargest(10, 'Costo Total')[['Descripción', 'Costo Total', 'Fecha de Registro']].reset_index(drop=True)
+    st.dataframe(top_10_avisos)
+
+    st.markdown("### Costos Mensuales")
+    df_processed['Mes-Año'] = df_processed['Fecha de Registro'].dt.to_period('M')
+    costo_mensual = df_processed.groupby('Mes-Año')['Costo Total'].sum().sort_index().reset_index()
+    costo_mensual['Mes-Año'] = costo_mensual['Mes-Año'].astype(str) # Convert Period to string for plotting
+    fig, ax = plt.subplots(figsize=(15, 7))
+    sns.lineplot(x='Mes-Año', y='Costo Total', data=costo_mensual, marker='o', ax=ax)
+    ax.set_title('Tendencia de Costos Mensuales')
+    ax.set_xlabel('Mes-Año')
+    ax.set_ylabel('Costo Total')
+    ax.ticklabel_format(style='plain', axis='y')
+    plt.xticks(rotation=45)
+    st.pyplot(fig)
+    st.dataframe(costo_mensual)
+
+    st.markdown("### Resumen de Avisos por Categoría y Año")
+    pivot_table = pd.pivot_table(df_processed, values='Costo Total', index='Categoria', columns='Año', aggfunc='sum', fill_value=0)
+    st.dataframe(pivot_table)
+
+    st.markdown("### Costo Promedio por Aviso")
+    df_processed['Costo por Aviso'] = df_processed['Costo Total'] / df_processed['Cantidad']
+    promedio_costo_aviso = df_processed['Costo por Aviso'].mean()
+    st.write(f"El costo promedio por aviso es: ${promedio_costo_aviso:,.2f}")
+
+# --- EvaluacionApp functionality (adapted for Streamlit) ---
+def evaluacion_page(df_processed):
+    st.markdown("## Evaluación de Avisos")
+
+    if df_processed.empty:
+        st.warning("No hay datos cargados para la evaluación.")
+        return
+
+    st.markdown("### Conteo de Avisos por Año")
+    avisos_por_año = df_processed['Año'].value_counts().sort_index().reset_index()
+    avisos_por_año.columns = ['Año', 'Número de Avisos']
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sns.barplot(x='Año', y='Número de Avisos', data=avisos_por_año, palette='pastel', ax=ax)
+    ax.set_title('Número de Avisos por Año')
+    ax.set_xlabel('Año')
+    ax.set_ylabel('Número de Avisos')
+    st.pyplot(fig)
+    st.dataframe(avisos_por_año)
+
+    st.markdown("### Conteo de Avisos por Categoría")
+    avisos_por_categoria = df_processed['Categoria'].value_counts().reset_index()
+    avisos_por_categoria.columns = ['Categoria', 'Número de Avisos']
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sns.barplot(x='Número de Avisos', y='Categoria', data=avisos_por_categoria, palette='coolwarm', ax=ax)
+    ax.set_title('Número de Avisos por Categoría')
+    ax.set_xlabel('Número de Avisos')
+    ax.set_ylabel('Categoría')
+    st.pyplot(fig)
+    st.dataframe(avisos_por_categoria)
+
+    st.markdown("### Distribución de Avisos por Día de la Semana")
+    df_processed['Dia_Semana'] = df_processed['Fecha de Registro'].dt.day_name(locale='es_ES') # Use Spanish locale
+    dias_orden = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+    df_processed['Dia_Semana'] = pd.Categorical(df_processed['Dia_Semana'], categories=dias_orden, ordered=True)
+    avisos_por_dia = df_processed['Dia_Semana'].value_counts().sort_index().reset_index()
+    avisos_por_dia.columns = ['Día de la Semana', 'Número de Avisos']
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sns.barplot(x='Día de la Semana', y='Número de Avisos', data=avisos_por_dia, palette='cubehelix', ax=ax)
+    ax.set_title('Número de Avisos por Día de la Semana')
+    ax.set_xlabel('Día de la Semana')
+    ax.set_ylabel('Número de Avisos')
+    st.pyplot(fig)
+    st.dataframe(avisos_por_dia)
+
+    st.markdown("### Conteo de Avisos por Mes")
+    df_processed['Mes'] = df_processed['Fecha de Registro'].dt.month_name(locale='es_ES')
+    meses_orden = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+    df_processed['Mes'] = pd.Categorical(df_processed['Mes'], categories=meses_orden, ordered=True)
+    avisos_por_mes = df_processed['Mes'].value_counts().sort_index().reset_index()
+    avisos_por_mes.columns = ['Mes', 'Número de Avisos']
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sns.barplot(x='Mes', y='Número de Avisos', data=avisos_por_mes, palette='plasma', ax=ax)
+    ax.set_title('Número de Avisos por Mes')
+    ax.set_xlabel('Mes')
+    ax.set_ylabel('Número de Avisos')
+    plt.xticks(rotation=45)
+    st.pyplot(fig)
+    st.dataframe(avisos_por_mes)
+
+
+# --- Main Streamlit App ---
+def main():
+    st.set_page_config(
+        page_title="Análisis de Avisos y Costos",
+        page_icon=":bar_chart:",
+        layout="wide"
+    )
+
+    st.sidebar.title("Navegación")
+    menu_options = {
+        "Inicio": "home",
+        "Costos y Avisos": "costos_avisos",
+        "Evaluación de Avisos": "evaluacion",
+        "Descargar Datos Procesados": "download"
+    }
+    choice = st.sidebar.radio("Selecciona una opción", list(menu_options.keys()))
+
+    st.title("Sistema de Análisis de Avisos Publicitarios")
+
+    # File uploader always visible
+    uploaded_file = st.sidebar.file_uploader("Sube tu archivo Excel (avisos_filtrados.xlsx)", type=["xlsx"])
+    
+    # Load and preprocess data only once
+    df = load_data(uploaded_file)
+    df_processed = preprocess_data(df.copy()) # Pass a copy to avoid modifying original cached df
+
+    if menu_options[choice] == "home":
+        st.markdown("""
+        Bienvenido al sistema de análisis de avisos publicitarios.
+        
+        Sube tu archivo `avisos_filtrados.xlsx` usando el cargador de archivos en la barra lateral para comenzar.
+        
+        Una vez cargados los datos, podrás navegar a través de las diferentes secciones para explorar:
+        - **Costos y Avisos**: Análisis detallado de los costos asociados a los avisos, tendencias anuales, por categoría, y top avisos.
+        - **Evaluación de Avisos**: Conteo y distribución de avisos por año, categoría, día de la semana y mes.
+        """)
+        if not df_processed.empty:
+            st.markdown("### Vista Previa de los Datos Cargados y Procesados")
+            st.dataframe(df_processed.head())
+
+    elif menu_options[choice] == "costos_avisos":
+        costos_avisos_page(df_processed)
+
+    elif menu_options[choice] == "evaluacion":
+        evaluacion_page(df_processed)
+
+    elif menu_options[choice] == "download":
+        st.markdown("## Descargar Datos Procesados")
+        if not df_processed.empty:
+            st.write("Haz clic en el botón de abajo para descargar los datos procesados en formato Excel.")
+            
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                df_processed.to_excel(writer, index=False, sheet_name='Datos_Procesados')
+            output.seek(0)
+            
+            st.download_button(
+                label="Descargar Datos Procesados (Excel)",
+                data=output.getvalue(),
+                file_name="avisos_procesados.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+        else:
+            st.warning("No hay datos procesados para descargar. Por favor, carga un archivo primero.")
+
+if __name__ == "__main__":
+    main()
