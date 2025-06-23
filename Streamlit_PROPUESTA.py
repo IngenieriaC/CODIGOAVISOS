@@ -119,22 +119,21 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
     # Unir por 'Aviso'
     tmp1 = pd.merge(iw29, iw39_subset, on="Aviso", how="left")
     tmp2 = pd.merge(tmp1, iw65, on="Aviso", how="left")
-
+    
     # Restaurar el valor original de "Equipo" de IW29 después del merge
     # Asegurarse de que no haya duplicados antes de la unión si 'Equipo' ya existiera en tmp2
     if "Equipo" in tmp2.columns:
         tmp2.drop(columns=["Equipo"], errors='ignore', inplace=True)
     tmp2 = pd.merge(tmp2, equipo_original, on="Aviso", how="left")
 
-    # Unir por 'Equipo' con IH08
+     # Unir por 'Equipo' con IH08
     tmp3 = pd.merge(tmp2, ih08[[
         "Equipo", "Inic.garantía prov.", "Fin garantía prov.", "Texto", "Indicador ABC",
-        "Denominación de objeto técnico", "Clase de actividad", "Puesto de trabajo" # Añadir 'Clase de actividad' y 'Puesto de trabajo' de IH08
-    ]], on="Equipo", how="left')
+        "Denominación de objeto técnico", "Clase de actividad", "Puesto de trabajo"
+    ]], on="Equipo", how="left") # <--- ¡Aquí estaba el error!
 
     # Unir por 'Equipo' con ZPM015
     tmp4 = pd.merge(tmp3, zpm015[["Equipo", "TIPO DE SERVICIO"]], on="Equipo", how="left")
-
     # Renombrar columnas
     tmp4.rename(columns={
         "Texto": "Texto_equipo",
