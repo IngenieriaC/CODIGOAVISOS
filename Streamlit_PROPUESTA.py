@@ -75,7 +75,7 @@ ORIGINAL_TIPO_SERVICIO_COL_NAME = "Tipo de servicio" # Este es el que usaremos e
 ORIGINAL_COSTOS_COL_NAME = "Costes tot.reales"
 ORIGINAL_DESCRIPTION_COL_NAME = "Descripción"
 ORIGINAL_FECHA_AVISO_COL_NAME = "Fecha de aviso"
-ORIGINAL_TEXTO_POSICION_COL_NAME = "Texto de Posición" # Asegúrate que esta columna esté en tu Excel original
+ORIGINAL_TEXTO_POSICION_COL_NAME = "Texto de posición" # Actualizado para coincidir con el error
 ORIGINAL_TEXTO_EQUIPO_COL_NAME = "Texto_equipo"
 ORIGINAL_DURACION_PARADA_COL_NAME = "Duración de parada"
 ORIGINAL_EQUIPO_COL_NAME = "Equipo"
@@ -91,7 +91,7 @@ column_mapping = {
     ORIGINAL_COSTOS_COL_NAME: "costes_totreales",
     ORIGINAL_DESCRIPTION_COL_NAME: "descripcion",
     ORIGINAL_FECHA_AVISO_COL_NAME: "fecha_de_aviso",
-    ORIGINAL_TEXTO_POSICION_COL_NAME: "texto_de_posicion",
+    ORIGINAL_TEXTO_POSICION_COL_NAME: "texto_de_posicion", # Actualizado aquí también
     ORIGINAL_TEXTO_EQUIPO_COL_NAME: "texto_equipo",
     ORIGINAL_DURACION_PARADA_COL_NAME: "duracion_de_parada",
     ORIGINAL_EQUIPO_COL_NAME: "equipo",
@@ -345,9 +345,17 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
     tmp2 = pd.merge(tmp2, equipo_duracion_original, on="Aviso", how="left")
 
     # Unir por 'Equipo' con IH08
-    tmp3 = pd.merge(tmp2, ih08[[
-        "Equipo", "Inic.garantía prov.", "Fin garantía prov.", "Texto", "Indicador ABC", "Denominación de objeto técnico", "Texto de posición" # Añadir Texto de posición
-    ]], on="Equipo", how="left")
+    ih08_cols_to_merge = [
+        "Equipo", "Inic.garantía prov.", "Fin garantía prov.", "Texto", "Indicador ABC", "Denominación de objeto técnico"
+    ]
+    # ¡Aquí el ajuste clave! Solo añade "Texto de posición" si existe en ih08
+    if "Texto de posición" in ih08.columns:
+        ih08_cols_to_merge.append("Texto de posición")
+    else:
+        st.warning("La columna 'Texto de posición' no se encontró en la hoja 'ih08'. No se incluirá en la fusión.")
+
+    tmp3 = pd.merge(tmp2, ih08[ih08_cols_to_merge], on="Equipo", how="left")
+
 
     # Unir por 'Equipo' con ZPM015
     tmp4 = pd.merge(tmp3, zpm015[["Equipo", "TIPO DE SERVICIO"]], on="Equipo", how="left")
@@ -356,7 +364,7 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
     tmp4.rename(columns={
         "Texto": "Texto_equipo",
         "Total general (real)": "Costes tot.reales",
-        "Texto de posición": "Texto de Posición" # Asegurar que este nombre sea el esperado por el mapping
+        "Texto de posición": "Texto de posición" # Asegurar que este nombre sea el esperado por el mapping
     }, inplace=True)
 
     # Aplicar el mapeo de columnas final aquí para tener nombres consistentes
@@ -500,7 +508,7 @@ def show_evaluation_form_streamlit(df_data: pd.DataFrame, selected_provider: str
     st.subheader("Evaluación por Categoría y Pregunta")
 
     # Obtener tipos de servicio únicos para los datos filtrados (columnas de la tabla)
-    service_types_on_page = sorted(df_filtered['tipo_de_servicio'].unique().tolist())
+    service_types_on_page = sorted(df_filtered['tipo_de_servicio'].dropna().unique().tolist())
     
     if not service_types_on_page:
         st.warning("No hay datos o tipos de servicio disponibles para la selección actual. Por favor, sube un archivo o ajusta los filtros.")
@@ -600,34 +608,42 @@ def show_evaluation_form_streamlit(df_data: pd.DataFrame, selected_provider: str
 
             # Intentar extraer proveedor y servicio si la clave lo permite
             if len(parts) >= 2:
+                # El proveedor es la primera parte
                 provider = parts[0]
-                # Buscar el tipo de servicio que coincida con uno de los service_types_on_page
-                # y luego reconstruir el resto como la pregunta
-                temp_st = []
-                temp_q = []
-                found_category_start = False
+                
+                # Reconstruir el tipo de servicio y la categoría/pregunta
+                # Buscamos la categoría primero, que divide el tipo de servicio de la pregunta
+                temp_st_parts = []
+                temp_q_parts = []
+                found_category_index = -1
 
-                for part in parts[1:]:
-                    is_category = part in rangos_detallados.keys()
-                    if is_category:
+                for idx, part in enumerate(parts[1:]): # Empezamos desde la segunda parte (después del proveedor)
+                    if part in rangos_detallados.keys():
                         category = part
-                        found_category_start = True
-                        continue # Skip adding category to service_type_parts
+                        found_category_index = idx + 1 # +1 porque estamos iterando sobre parts[1:]
+                        break
+                    temp_st_parts.append(part)
 
-                    if not found_category_start:
-                        temp_st.append(part)
-                    else:
-                        temp_q.append(part)
+                service_type = "_".join(temp_st_parts)
                 
-                service_type = "_".join(temp_st)
-                question = " ".join(temp_q).replace("¿", "¿").replace("?", "?") # Re-agregar signos si se perdieron
-                
-                # Buscar la pregunta original en la lista de preguntas
-                for cat_orig, q_orig, _ in preguntas:
-                    if cat_orig == category and re.sub(r'[¿?().% ]', '', q_orig).replace(" ", "_") == re.sub(r'[¿?().% ]', '', question).replace(" ", "_"):
-                         question = q_orig
-                         break
-            
+                # Si se encontró la categoría, el resto son partes de la pregunta
+                if found_category_index != -1:
+                    temp_q_parts = parts[found_category_index + 1:]
+                    question_reconstructed = " ".join(temp_q_parts).replace("_", " ") # Reemplazar guiones bajos por espacios
+                    
+                    # Intentar matchear la pregunta reconstruida con las preguntas originales
+                    # para obtener la formulación exacta
+                    for cat_orig, q_orig, _ in preguntas:
+                        # Limpiamos ambas cadenas para una comparación más robusta
+                        cleaned_q_orig = re.sub(r'[¿?().% ]', '', q_orig).lower()
+                        cleaned_q_reconstructed = re.sub(r'[¿?().% ]', '', question_reconstructed).lower()
+                        
+                        if cleaned_q_orig == cleaned_q_reconstructed:
+                            question = q_orig
+                            break
+                    if question == "N/A": # Si no se encontró un match perfecto
+                        question = question_reconstructed # Usar la reconstruida tal cual
+
             results_list.append({
                 'Proveedor': provider,
                 'Tipo de Servicio': service_type.replace("De", "de").replace("Totreales", "tot.reales").replace("Posicion", "Posición"), # Limpieza básica
