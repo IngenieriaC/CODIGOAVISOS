@@ -49,8 +49,8 @@ st.markdown(
         background-color: rgba(255, 255, 255, 0.9); /* Blanco semitransparente */
         padding: 1.5rem;
         border-radius: 0.75rem;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        margin-bottom: 1rem;
+        box_shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        margin_bottom: 1rem;
     }
     /* Mejoras para la tabla (dataframe) */
     .streamlit-dataframe {
@@ -287,7 +287,7 @@ def calcular_mtbf(df_subset: pd.DataFrame, horarios: dict) -> pd.Series:
     num_avisos_por_equipo = num_avisos_por_equipo.reindex(horas_op_unicas_equipo.index).fillna(0)
 
     mtbf_equipo = (horas_op_unicas_equipo - total_parada_por_equipo) / num_avisos_por_equipo
-    mtbf_equipo = mtbf_equipo.replace([np.inf, -np.inf], np.nan).fillna(0)
+    mtbf_equipo = mtbf_equipo.replace([np.inf, -np.inf], np.nan).fillna(0) # Manejar divisiones por cero
 
     mtbf_por_servicio = df_subset.groupby('tipo_de_servicio')['equipo'].apply(
         lambda equipos: mtbf_equipo[equipos.unique()].mean()
@@ -492,18 +492,18 @@ class AnalysisApp:
 
         # Opciones de análisis dinámicas
         self.opciones_menu = {
-            "Costos por ejecutante": (self.EJECUTANTE_COL_NAME_NORMALIZED, self.COL_COSTOS_NORMALIZED, "costos"),
-            "Avisos por ejecutante": (self.EJECUTANTE_COL_NAME_NORMALIZED, None, "avisos"), # None para conteo de avisos
-            "Costos por objeto técnico": ("denominacion_de_objeto_tecnico", self.COL_COSTOS_NORMALIZED, "costos"),
-            "Avisos por objeto técnico": ("denominacion_de_objeto_tecnico", None, "avisos"),
-            "Costos por texto código acción": ("texto_codigo_accion", self.COL_COSTOS_NORMALIZED, "costos"),
-            "Avisos por texto código acción": ("texto_codigo_accion", None, "avisos"),
-            "Costos por texto de acción": ("texto_de_accion", self.COL_COSTOS_NORMALIZED, "costos"),
-            "Avisos por texto de acción": ("texto_de_accion", None, "avisos"),
-            "Costos por tipo de servicio": ("tipo_de_servicio", self.COL_COSTOS_NORMALIZED, "costos"),
-            "Avisos por tipo de servicio": ("tipo_de_servicio", None, "avisos"),
-            "Costos por categoría de descripción": ("description_category", self.COL_COSTOS_NORMALIZED, "costos"),
-            "Avisos por categoría de descripción": ("description_category", None, "avisos"),
+            "Costos por Ejecutante": (self.EJECUTANTE_COL_NAME_NORMALIZED, self.COL_COSTOS_NORMALIZED, "costos"),
+            "Avisos por Ejecutante": (self.EJECUTANTE_COL_NAME_NORMALIZED, None, "avisos"), # None para conteo de avisos
+            "Costos por Objeto Técnico": ("denominacion_de_objeto_tecnico", self.COL_COSTOS_NORMALIZED, "costos"), # Nueva
+            "Avisos por Objeto Técnico": ("denominacion_de_objeto_tecnico", None, "avisos"),
+            "Costos por Texto Código Acción": ("texto_codigo_accion", self.COL_COSTOS_NORMALIZED, "costos"), # Nueva
+            "Avisos por Texto Código Acción": ("texto_codigo_accion", None, "avisos"),
+            "Costos por Texto de Acción": ("texto_de_accion", self.COL_COSTOS_NORMALIZED, "costos"), # Nueva
+            "Avisos por Texto de Acción": ("texto_de_accion", None, "avisos"),
+            "Costos por Tipo de Servicio": ("tipo_de_servicio", self.COL_COSTOS_NORMALIZED, "costos"), # Nueva
+            "Avisos por Tipo de Servicio": ("tipo_de_servicio", None, "avisos"),
+            "Costos por Categoría de Descripción": ("description_category", self.COL_COSTOS_NORMALIZED, "costos"), # Nueva
+            "Avisos por Categoría de Descripción": ("description_category", None, "avisos"),
         }
         
         # Filtra las opciones_menu para asegurarse de que las columnas existan en el DataFrame
@@ -680,10 +680,6 @@ if st.session_state.page == "Inicio y Carga de Datos":
 
                 st.success("✅ Datos cargados y procesados exitosamente.")
                 st.write(f"**Filas finales:** {len(st.session_state.df)} – **Columnas:** {len(st.session_state.df.columns)}")
-
-                st.markdown("---")
-                st.subheader("Vista previa de los datos procesados:")
-                st.dataframe(st.session_state.df.head(10))
 
                 st.markdown("---")
                 st.subheader("Descarga de Datos")
