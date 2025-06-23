@@ -508,6 +508,10 @@ rangos_detallados = {
         }
     }
 }
+# ... (your existing imports and setup) ...
+
+# --- Funciones para calcular indicadores de desempeño técnico (Mantener estas, son eficientes) ---
+# ... (calcular_disponibilidad, calcular_mttr, calcular_mtbf, clasificar_rendimiento as they are) ...
 
 # --- Uploader y Ejecución ---
 uploaded_file = st.file_uploader("Sube tu archivo 'DATA2.XLSX' aquí", type=["xlsx"])
@@ -522,6 +526,8 @@ if 'selected_eval_target' not in st.session_state:
     st.session_state.selected_eval_target = None
 if 'evaluations' not in st.session_state:
     st.session_state.evaluations = {} # Store user evaluations: {('Categoría', 'Pregunta', 'Target'): valor}
+if 'pre_calculated_metrics' not in st.session_state:
+    st.session_state.pre_calculated_metrics = None
 
 if uploaded_file:
     file_buffer = io.BytesIO(uploaded_file.getvalue())
@@ -531,19 +537,13 @@ if uploaded_file:
             df_processed = load_and_merge_data(file_buffer)
 
             # --- Procesamiento adicional ---
-            # Eliminar registros cuyo 'Status del sistema' contenga "PTBO"
             initial_rows = len(df_processed)
             df_processed = df_processed[~df_processed["Status del sistema"].str.contains("PTBO", case=False, na=False)]
             st.info(f"Se eliminaron {initial_rows - len(df_processed)} registros con 'PTBO' en 'Status del sistema'.")
 
-            # Dejar solo una fila con coste por cada aviso (esto parece para el original)
-            # Para la evaluación, el costo total real puede ser útil sumado por servicio o proveedor
             df_processed['Costes tot.reales'] = pd.to_numeric(df_processed['Costes tot.reales'], errors='coerce').fillna(0)
-            
-            # Ajustar la columna 'Duración de parada' para que sea numérica
             df_processed['Duración de parada'] = pd.to_numeric(df_processed['Duración de parada'], errors='coerce').fillna(0)
 
-            # Ensure 'Denominación ejecutante' is the 'PROVEEDOR' column
             if 'Denominación ejecutante' in df_processed.columns:
                 df_processed.rename(columns={'Denominación ejecutante': 'PROVEEDOR'}, inplace=True)
             else:
@@ -552,18 +552,36 @@ if uploaded_file:
 
             st.session_state.df = df_processed
 
+            # Pre-calculate all technical metrics once after data load
+            st.session_state.pre_calculated_metrics = {}
+            if 'TIPO DE SERVICIO' in st.session_state.df.columns and not st.session_state.df['TIPO DE SERVICIO'].isnull().all():
+                st.session_state.pre_calculated_metrics['disponibilidad_servicio'] = calcular_disponibilidad(st.session_state.df, horarios_dict)
+                st.session_state.pre_calculated_metrics['mttr_servicio'] = calcular_mttr(st.session_state.df)
+                st.session_state.pre_calculated_metrics['mtbf_servicio'] = calcular_mtbf(st.session_state.df, horarios_dict)
+                st.session_state.pre_calculated_metrics['rendimiento_servicio'] = clasificar_rendimiento(st.session_state.pre_calculated_metrics['disponibilidad_servicio'])
+            else:
+                st.warning("La columna 'TIPO DE SERVICIO' no está disponible o está vacía para el cálculo de métricas técnicas por servicio.")
+
+            # Calculate for Providers too if needed for that eval mode
+            if 'PROVEEDOR' in st.session_state.df.columns and not st.session_state.df['PROVEEDOR'].isnull().all():
+                # For MTTR, MTBF, Disponibilidad, if you want to calculate per PROVEEDOR,
+                # you would need to adjust the functions to group by PROVEEDOR instead of TIPO DE SERVICIO.
+                # For simplicity, I'm assuming the technical metrics are primarily by TIPO DE SERVICIO as per your code.
+                # If you need them by PROVEEDOR, you'll need new functions or modify existing ones to take a 'group_by_col' argument.
+                pass # Add provider-specific technical metric calculation here if required
+
+
             st.success("✅ Datos cargados y procesados exitosamente.")
             st.write(f"**Filas finales:** {len(st.session_state.df)} – **Columnas:** {len(st.session_state.df.columns)}")
 
             # --- Visualización y Descarga ---
             st.markdown("---")
             st.subheader("Vista previa de los datos procesados:")
-            st.dataframe(st.session_state.df.head(10)) # Mostrar más filas para una mejor vista previa
+            st.dataframe(st.session_state.df.head(10))
 
             st.markdown("---")
             st.subheader("Descarga de Datos Procesados")
 
-            # Preparar CSV para descarga
             csv_output = st.session_state.df.to_csv(index=False).encode('utf-8')
             st.download_button(
                 label="Descargar como CSV",
@@ -573,10 +591,9 @@ if uploaded_file:
                 help="Descarga el archivo en formato CSV."
             )
 
-            # Preparar Excel para descarga
             excel_buffer = io.BytesIO()
             st.session_state.df.to_excel(excel_buffer, index=False, engine='openpyxl')
-            excel_buffer.seek(0) # Rebobinar el buffer antes de enviarlo
+            excel_buffer.seek(0)
             st.download_button(
                 label="Descargar como Excel",
                 data=excel_buffer,
@@ -591,226 +608,333 @@ if uploaded_file:
         except Exception as e:
             st.error(f"❌ ¡Ups! Ocurrió un error al procesar el archivo: {e}")
             st.warning("Por favor, verifica que el archivo subido sea `DATA2.XLSX` y tenga el formato de hojas esperado.")
-            st.exception(e) # Muestra el traceback completo para depuración
+            st.exception(e)
 else:
     st.info("⬆️ Sube tu archivo `DATA2.XLSX` para empezar con el análisis.")
 
-# --- Sección de Evaluación ---
+# --- Sección de Evaluación (Modificada) ---
 if st.session_state.df is not None and not st.session_state.df.empty:
     st.markdown("---")
     st.title("📊 Evaluación de Desempeño")
     st.markdown("""
         Utiliza esta sección para evaluar el desempeño de los **proveedores** o **tipos de servicio**
-        basado en criterios de calidad, oportunidad, precio y desempeño técnico.
+        basado en criterios de calidad, oportunidad, precio y postventa, además de visualizar métricas de desempeño técnico.
     """)
-    st.markdown("---")
 
-    col1_eval, col2_eval = st.columns([1, 2])
+    # Selección del modo de evaluación
+    st.session_state.eval_mode = st.radio(
+        "Selecciona el modo de evaluación:",
+        ("Por Tipo de Servicio", "Por Proveedor"),
+        index=0 if st.session_state.eval_mode == "Por Tipo de Servicio" else 1,
+        key="eval_mode_radio"
+    )
 
-    with col1_eval:
-        st.session_state.eval_mode = st.radio(
-            "Selecciona el modo de evaluación:",
-            ("Por Tipo de Servicio", "Por Proveedor"),
-            key="eval_mode_selector"
-        )
-    
-    # Obtener las opciones para el selector principal
     if st.session_state.eval_mode == "Por Tipo de Servicio":
-        target_options = ['Todos los Servicios'] + sorted(st.session_state.df['TIPO DE SERVICIO'].dropna().unique().tolist())
-    else: # Por Proveedor
-        target_options = ['Todos los Proveedores'] + sorted(st.session_state.df['PROVEEDOR'].dropna().unique().tolist())
-
-    with col2_eval:
-        selected_target = st.selectbox(
-            f"Selecciona {'un Tipo de Servicio' if st.session_state.eval_mode == 'Por Tipo de Servicio' else 'un Proveedor'}:",
-            options=target_options,
-            key="selected_eval_target_selector"
-        )
-        st.session_state.selected_eval_target = selected_target
-
-    # Filtrar el DataFrame según la selección
-    df_eval = st.session_state.df.copy()
-    if st.session_state.eval_mode == "Por Tipo de Servicio":
-        if selected_target != "Todos los Servicios":
-            df_eval = df_eval[df_eval['TIPO DE SERVICIO'] == selected_target]
+        # Asegurarse de que 'TIPO DE SERVICIO' no sea nulo antes de obtener los únicos
+        if 'TIPO DE SERVICIO' in st.session_state.df.columns and not st.session_state.df['TIPO DE SERVICIO'].isnull().all():
+            eval_targets = sorted(st.session_state.df['TIPO DE SERVICIO'].dropna().unique().tolist())
         else:
-            # Si 'Todos los Servicios', no filtramos por TIPO DE SERVICIO, pero necesitamos los datos
-            # agrupados por TIPO DE SERVICIO para los cálculos.
-            pass
+            eval_targets = []
+            st.warning("No hay 'TIPO DE SERVICIO' válidos para evaluar.")
     else: # Por Proveedor
-        if selected_target != "Todos los Proveedores":
-            df_eval = df_eval[df_eval['PROVEEDOR'] == selected_target]
+        if 'PROVEEDOR' in st.session_state.df.columns and not st.session_state.df['PROVEEDOR'].isnull().all():
+            eval_targets = sorted(st.session_state.df['PROVEEDOR'].dropna().unique().tolist())
         else:
-            # Si 'Todos los Proveedores', no filtramos por PROVEEDOR, pero necesitamos los datos
-            # agrupados por PROVEEDOR para los cálculos.
-            pass
-    
-    if df_eval.empty:
-        st.warning(f"No hay datos disponibles para '{st.session_state.selected_eval_target}' en el modo '{st.session_state.eval_mode}'.")
+            eval_targets = []
+            st.warning("No hay 'PROVEEDOR' válidos para evaluar.")
+
+    if not eval_targets:
+        st.info("No hay objetivos de evaluación disponibles. Sube un archivo con datos válidos.")
     else:
-        # Calcular indicadores de desempeño técnico para el subconjunto de datos
-        # Estos cálculos siempre se harán por TIPO DE SERVICIO o EQUIPO, dependiendo del modo
-        if st.session_state.eval_mode == "Por Tipo de Servicio":
-            # Si estamos evaluando por Tipo de Servicio, los KPIs deben ser para el tipo de servicio seleccionado
-            # o promediados si es "Todos los Servicios"
-            current_disponibilidad = calcular_disponibilidad(df_eval, horarios_dict)
-            current_mttr = calcular_mttr(df_eval)
-            current_mtbf = calcular_mtbf(df_eval, horarios_dict)
-            current_rendimiento = clasificar_rendimiento(current_disponibilidad)
-            
-            # Si es "Todos los Servicios", necesitamos evaluar cada tipo de servicio individualmente
-            if selected_target == "Todos los Servicios":
-                targets_for_evaluation = sorted(df_eval['TIPO DE SERVICIO'].dropna().unique().tolist())
-            else:
-                targets_for_evaluation = [selected_target] # Solo el tipo de servicio seleccionado
-            
-        else: # Por Proveedor
-            # Si estamos evaluando por Proveedor, los KPIs deben ser para los TIPOS DE SERVICIO de ese proveedor
-            # Los cálculos siempre se harán por TIPO DE SERVICIO
-            current_disponibilidad = calcular_disponibilidad(df_eval, horarios_dict)
-            current_mttr = calcular_mttr(df_eval)
-            current_mtbf = calcular_mtbf(df_eval, horarios_dict)
-            current_rendimiento = clasificar_rendimiento(current_disponibilidad)
+        # Selección del objetivo de evaluación
+        selected_target_index = 0
+        if st.session_state.selected_eval_target in eval_targets:
+            selected_target_index = eval_targets.index(st.session_state.selected_eval_target)
 
-            # Necesitamos los tipos de servicio únicos para el proveedor seleccionado
-            if selected_target == "Todos los Proveedores":
-                # Si es "Todos los Proveedores", evaluamos por cada tipo de servicio único en todo el DF
-                targets_for_evaluation = sorted(st.session_state.df['TIPO DE SERVICIO'].dropna().unique().tolist())
-            else:
-                targets_for_evaluation = sorted(df_eval['TIPO DE SERVICIO'].dropna().unique().tolist())
-        
-        # Paginación para "Por Proveedor" si hay muchos tipos de servicio
-        items_per_page = 5
-        total_pages = int(np.ceil(len(targets_for_evaluation) / items_per_page))
+        st.session_state.selected_eval_target = st.selectbox(
+            f"Selecciona el {st.session_state.eval_mode.split(' ')[1].lower()} a evaluar:",
+            eval_targets,
+            index=selected_target_index,
+            key="selected_eval_target_box"
+        )
 
-        col_prev, col_page_info, col_next = st.columns([1, 1, 1])
-        with col_prev:
-            if st.session_state.current_page_eval > 0:
-                if st.button("Página Anterior", key="prev_page_eval_button"):
-                    st.session_state.current_page_eval -= 1
-                    st.experimental_rerun()
-        with col_page_info:
-            if total_pages > 0:
-                st.write(f"Página {st.session_state.current_page_eval + 1} de {total_pages}")
-            else:
-                st.write("No hay elementos para mostrar.")
-        with col_next:
-            if st.session_state.current_page_eval < total_pages - 1:
-                if st.button("Página Siguiente", key="next_page_eval_button"):
-                    st.session_state.current_page_eval += 1
-                    st.experimental_rerun()
+        st.markdown(f"### Evaluación para: **{st.session_state.selected_eval_target}**")
 
-        start_idx = st.session_state.current_page_eval * items_per_page
-        end_idx = start_idx + items_per_page
-        targets_on_page = targets_for_evaluation[start_idx:end_idx]
+        # Create columns for user input and results
+        col_input, col_results = st.columns([0.6, 0.4])
 
-        if not targets_on_page:
-            st.info("No hay tipos de servicio/proveedores para mostrar en esta página.")
-        else:
-            st.markdown("---")
-            st.subheader("Formulario de Evaluación")
-
-            # Preparar las cabeceras de los targets para la tabla
-            cols = st.columns([0.3] + [0.7/len(targets_on_page)] * len(targets_on_page))
-            cols[0].markdown("**Pregunta / Indicador**")
-            for i, target_label in enumerate(targets_on_page):
-                cols[i+1].markdown(f"**{target_label}**")
-            
-            evaluation_results = []
-
+        with col_input:
+            st.subheader("Criterios de Evaluación Manual:")
+            current_target_evaluations = {}
             for category, questions in rangos_detallados.items():
+                if category == "Desempeño técnico": # Technical performance is not manually input
+                    continue
                 st.markdown(f"#### {category}")
                 for question, options in questions.items():
-                    col_q, *cols_targets = st.columns([0.3] + [0.7/len(targets_on_page)] * len(targets_on_page))
-                    col_q.markdown(f"**{question}**")
+                    # Ensure the key is unique for each target
+                    unique_key = f"{category}_{question}_{st.session_state.selected_eval_target}"
+                    
+                    # Convert options dict to a list of (label, value) for the radio button
+                    # Sort options by value to ensure consistent display
+                    sorted_options = sorted(options.items(), key=lambda item: item[0], reverse=True)
+                    option_labels = [f"{v} ({k})" for k, v in sorted_options]
+                    option_values = [k for k, v in sorted_options]
 
-                    for i, target_eval in enumerate(targets_on_page):
-                        key = (category, question, target_eval)
-                        
-                        if category == "Desempeño técnico":
-                            # Calculamos y mostramos el valor automático
-                            val = 0
-                            description = "N/A"
-                            if "Disponibilidad" in question and target_eval in current_disponibilidad:
-                                mean_disp = current_disponibilidad[target_eval]
-                                if mean_disp >= 98: val = 2
-                                elif mean_disp >= 75: val = 1
-                                else: val = 0
-                                description = f"{mean_disp:.2f}%"
-                            elif "MTTR" in question and target_eval in current_mttr:
-                                mean_mttr = current_mttr[target_eval]
-                                if mean_mttr <= 5: val = 2
-                                elif mean_mttr <= 20: val = 1
-                                else: val = 0
-                                description = f"{mean_mttr:.2f} hrs"
-                            elif "MTBF" in question and target_eval in current_mtbf:
-                                mean_mtbf = current_mtbf[target_eval]
-                                if mean_mtbf > 1000: val = 2
-                                elif mean_mtbf >= 100: val = 1
-                                else: val = 0
-                                description = f"{mean_mtbf:.2f} hrs"
-                            elif "Rendimiento" in question and target_eval in current_rendimiento:
-                                perf_class = current_rendimiento[target_eval]
-                                if perf_class == 'Alto': val = 2
-                                elif perf_class == 'Medio': val = 1
-                                else: val = 0
-                                description = perf_class
-                            
-                            cols_targets[i].metric(label="", value=f"{val} ({description})")
-                            st.session_state.evaluations[key] = val # Guardar el valor calculado
-                            
-                        else:
-                            # Preguntas con selección manual
-                            display_options = [(v, k) for k, v in options.items()]
-                            current_value = st.session_state.evaluations.get(key, 0) # Default to 0
-                            
-                            selected_option = cols_targets[i].selectbox(
-                                label=f"Califica para {target_eval}",
-                                options=display_options,
-                                index=next((j for j, (val_opt, desc_opt) in enumerate(display_options) if val_opt == current_value), 2), # Find index of current_value
-                                key=f"eval_{category}_{question}_{target_eval}",
-                                label_visibility="collapsed"
-                            )
-                            st.session_state.evaluations[key] = selected_option # Store the selected value
-                        
-                        # Add to results for export
-                        evaluation_results.append({
-                            'Categoría': category,
-                            'Pregunta': question,
-                            st.session_state.eval_mode.replace("Por ", ""): target_eval, # Use "Tipo de Servicio" or "Proveedor"
-                            'Puntuación': st.session_state.evaluations[key],
-                            'Descripción Puntuación': options.get(st.session_state.evaluations[key], description if category == "Desempeño técnico" else "N/A")
-                        })
+                    # Get current value from session state if it exists, otherwise default to None (no selection)
+                    current_value = st.session_state.evaluations.get((category, question, st.session_state.selected_eval_target), None)
+                    
+                    try:
+                        default_index = option_values.index(current_value) if current_value is not None else 0
+                    except ValueError:
+                        default_index = 0 # Default to the first option if current_value is not found
+
+                    selected_option = st.radio(
+                        question,
+                        options=option_values, # Store the numeric value
+                        format_func=lambda x: options[x], # Display the descriptive text
+                        index=default_index,
+                        key=unique_key
+                    )
+                    st.session_state.evaluations[(category, question, st.session_state.selected_eval_target)] = selected_option
+
+
+        # --- Display Results ---
+        with col_results:
+            st.subheader("Resultados de la Evaluación:")
+
+            # Initialize results dataframe for the current target
+            results_data = []
+            
+            # Aggregate manual scores
+            total_calidad = 0
+            total_oportunidad = 0
+            total_precio = 0
+            total_postventa = 0
+            
+            for category, questions in rangos_detallados.items():
+                for question in questions:
+                    if category == "Desempeño técnico":
+                        continue
+                    score = st.session_state.evaluations.get((category, question, st.session_state.selected_eval_target), 0)
+                    if category == "Calidad":
+                        total_calidad += score
+                    elif category == "Oportunidad":
+                        total_oportunidad += score
+                    elif category == "Precio":
+                        total_precio += score
+                    elif category == "Postventa":
+                        total_postventa += score
+
+            results_data.append({"Categoría": "Calidad", "Puntuación": total_calidad})
+            results_data.append({"Categoría": "Oportunidad", "Puntuación": total_oportunidad})
+            results_data.append({"Categoría": "Precio", "Puntuación": total_precio})
+            results_data.append({"Categoría": "Postventa", "Puntuación": total_postventa})
+
+            # Add technical performance if applicable and pre-calculated
+            if st.session_state.eval_mode == "Por Tipo de Servicio" and st.session_state.pre_calculated_metrics:
+                target_service = st.session_state.selected_eval_target
+                disponibilidad = st.session_state.pre_calculated_metrics['disponibilidad_servicio'].get(target_service, 0)
+                mttr = st.session_state.pre_calculated_metrics['mttr_servicio'].get(target_service, 0)
+                mtbf = st.session_state.pre_calculated_metrics['mtbf_servicio'].get(target_service, 0)
+                rendimiento_clasificado = st.session_state.pre_calculated_metrics['rendimiento_servicio'].get(target_service, 'N/A')
+
+                # Technical Performance scores based on predefined ranges
+                # Map actual values to scores for display
+                disp_score = 0
+                if disponibilidad >= 98: disp_score = 2
+                elif disponibilidad >= 75: disp_score = 1
+                
+                mttr_score = 0
+                if mttr <= 5: mttr_score = 2
+                elif mttr <= 20: mttr_score = 1
+                
+                mtbf_score = 0
+                if mtbf > 1000: mtbf_score = 2
+                elif mtbf >= 100: mtbf_score = 1
+
+                rend_score = 0
+                if rendimiento_clasificado == 'Alto': rend_score = 2
+                elif rendimiento_clasificado == 'Medio': rend_score = 1
+
+                results_data.append({"Categoría": "Disponibilidad promedio (%)", "Puntuación": f"{disponibilidad:.2f}"})
+                results_data.append({"Categoría": "MTTR promedio (hrs)", "Puntuación": f"{mttr:.2f}"})
+                results_data.append({"Categoría": "MTBF promedio (hrs)", "Puntuación": f"{mtbf:.2f}"})
+                results_data.append({"Categoría": "Rendimiento promedio equipos", "Puntuación": rendimiento_clasificado})
+            
+            # Get associated providers if evaluating by Service Type
+            associated_providers = []
+            if st.session_state.eval_mode == "Por Tipo de Servicio":
+                target_df = st.session_state.df[st.session_state.df['TIPO DE SERVICIO'] == st.session_state.selected_eval_target]
+                if 'PROVEEDOR' in target_df.columns:
+                    associated_providers = target_df['PROVEEDOR'].dropna().unique().tolist()
+                
+            final_results_df = pd.DataFrame(results_data)
+            st.dataframe(final_results_df.set_index("Categoría"))
+
+            if associated_providers:
+                st.markdown(f"**Proveedores asociados:** {', '.join(associated_providers)}")
+            elif st.session_state.eval_mode == "Por Tipo de Servicio":
+                st.info("No hay proveedores asociados a este tipo de servicio en los datos.")
             
             st.markdown("---")
-            if st.button("Guardar y Exportar Evaluación", key="export_eval_button"):
-                if evaluation_results:
-                    df_eval_results = pd.DataFrame(evaluation_results)
+
+            # --- Consolidate and Display All Evaluations ---
+            st.subheader("Todas las Evaluaciones Consolidadas")
+            
+            all_eval_data = []
+            
+            # Get unique targets that have been evaluated
+            evaluated_targets = sorted(list(set([k[2] for k in st.session_state.evaluations.keys()])))
+
+            # Determine the type of target being evaluated (Service or Provider)
+            # This is a bit tricky since `evaluated_targets` could contain both if eval_mode changed
+            # We'll assume the currently selected eval_mode is dominant for interpretation
+            eval_target_col_name = "Tipo de Servicio" if st.session_state.eval_mode == "Por Tipo de Servicio" else "Proveedor"
+
+            for target in evaluated_targets:
+                row = {eval_target_col_name: target}
+                
+                # Manual scores
+                target_total_calidad = 0
+                target_total_oportunidad = 0
+                target_total_precio = 0
+                target_total_postventa = 0
+
+                for category, questions in rangos_detallados.items():
+                    if category == "Desempeño técnico":
+                        continue
+                    for question in questions:
+                        score = st.session_state.evaluations.get((category, question, target), 0)
+                        if category == "Calidad":
+                            target_total_calidad += score
+                        elif category == "Oportunidad":
+                            target_total_oportunidad += score
+                        elif category == "Precio":
+                            target_total_precio += score
+                        elif category == "Postventa":
+                            target_total_postventa += score
+                
+                row["Calidad Puntuación"] = target_total_calidad
+                row["Oportunidad Puntuación"] = target_total_oportunidad
+                row["Precio Puntuación"] = target_total_precio
+                row["Postventa Puntuación"] = target_total_postventa
+                
+                # Technical metrics (only if evaluating by Service Type)
+                if st.session_state.eval_mode == "Por Tipo de Servicio" and st.session_state.pre_calculated_metrics:
+                    disponibilidad = st.session_state.pre_calculated_metrics['disponibilidad_servicio'].get(target, 0)
+                    mttr = st.session_state.pre_calculated_metrics['mttr_servicio'].get(target, 0)
+                    mtbf = st.session_state.pre_calculated_metrics['mtbf_servicio'].get(target, 0)
+                    rendimiento_clasificado = st.session_state.pre_calculated_metrics['rendimiento_servicio'].get(target, 'N/A')
                     
-                    # Preparar CSV para descarga
-                    csv_eval_output = df_eval_results.to_csv(index=False).encode('utf-8')
-                    st.download_button(
-                        label="Descargar Evaluación como CSV",
-                        data=csv_eval_output,
-                        file_name="evaluacion_desempeno.csv",
-                        mime="text/csv",
-                        key="download_eval_csv"
-                    )
+                    row["Disponibilidad (%)"] = f"{disponibilidad:.2f}"
+                    row["MTTR (hrs)"] = f"{mttr:.2f}"
+                    row["MTBF (hrs)"] = f"{mtbf:.2f}"
+                    row["Rendimiento"] = rendimiento_clasificado
+                else: # For Provider evaluation or if no technical metrics available for service type
+                    row["Disponibilidad (%)"] = "N/A"
+                    row["MTTR (hrs)"] = "N/A"
+                    row["MTBF (hrs)"] = "N/A"
+                    row["Rendimiento"] = "N/A"
 
-                    # Preparar Excel para descarga
-                    excel_eval_buffer = io.BytesIO()
-                    df_eval_results.to_excel(excel_eval_buffer, index=False, engine='openpyxl')
-                    excel_eval_buffer.seek(0)
-                    st.download_button(
-                        label="Descargar Evaluación como Excel",
-                        data=excel_eval_buffer,
-                        file_name="evaluacion_desempeno.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        key="download_eval_excel"
-                    )
-                    st.success("Evaluación guardada y lista para descargar.")
+                # Associated Providers column (only if evaluating by Service Type)
+                if st.session_state.eval_mode == "Por Tipo de Servicio":
+                    target_df = st.session_state.df[st.session_state.df['TIPO DE SERVICIO'] == target]
+                    if 'PROVEEDOR' in target_df.columns:
+                        associated_providers_for_target = target_df['PROVEEDOR'].dropna().unique().tolist()
+                        row["Proveedores Asociados"] = ", ".join(associated_providers_for_target) if associated_providers_for_target else "Ninguno"
+                    else:
+                        row["Proveedores Asociados"] = "N/A"
                 else:
-                    st.warning("No hay evaluaciones para guardar. Por favor, selecciona un objetivo y califica.")
+                     row["Proveedores Asociados"] = "N/A (Eval. por Proveedor)" # Indicate not applicable for Provider mode
 
-else:
-    st.info("Sube un archivo para habilitar la sección de evaluación.")
+
+                all_eval_data.append(row)
+            
+            if all_eval_data:
+                consolidated_df = pd.DataFrame(all_eval_data)
+                consolidated_df.set_index(eval_target_col_name, inplace=True)
+                st.dataframe(consolidated_df)
+
+                # Download button for consolidated data
+                csv_consolidated = consolidated_df.to_csv().encode('utf-8')
+                st.download_button(
+                    label="Descargar Evaluaciones Consolidadas CSV",
+                    data=csv_consolidated,
+                    file_name="evaluaciones_consolidadas.csv",
+                    mime="text/csv",
+                    key="download_consolidated_evals"
+                )
+            else:
+                st.info("No hay evaluaciones guardadas aún. Realiza algunas evaluaciones para ver el resumen aquí.")
+
+    st.markdown("---")
+
+    st.subheader("Análisis de Costos")
+    st.markdown("---")
+    # ... (Resto de tu código para análisis de costos y gráficos) ...
+    # Asegúrate de que las columnas 'PROVEEDOR' y 'TIPO DE SERVICIO' existan y no estén vacías
+    if 'PROVEEDOR' in st.session_state.df.columns and not st.session_state.df['PROVEEDOR'].isnull().all():
+        costo_proveedor = st.session_state.df.groupby('PROVEEDOR')['Costes tot.reales'].sum().sort_values(ascending=False)
+        st.write("### Costos Totales por Proveedor")
+        st.dataframe(costo_proveedor.reset_index().rename(columns={'Costes tot.reales': 'Costo Total Real'}))
+
+        fig_costo_proveedor, ax_costo_proveedor = plt.subplots(figsize=(10, 6))
+        sns.barplot(x=costo_proveedor.index, y=costo_proveedor.values, ax=ax_costo_proveedor, palette='viridis')
+        ax_costo_proveedor.set_title('Costos Totales por Proveedor')
+        ax_costo_proveedor.set_xlabel('Proveedor')
+        ax_costo_proveedor.set_ylabel('Costo Total Real')
+        plt.xticks(rotation=45, ha='right')
+        plt.tight_layout()
+        st.pyplot(fig_costo_proveedor)
+    else:
+        st.info("No hay datos de 'PROVEEDOR' para el análisis de costos por proveedor.")
+
+    if 'TIPO DE SERVICIO' in st.session_state.df.columns and not st.session_state.df['TIPO DE SERVICIO'].isnull().all():
+        costo_servicio = st.session_state.df.groupby('TIPO DE SERVICIO')['Costes tot.reales'].sum().sort_values(ascending=False)
+        st.write("### Costos Totales por Tipo de Servicio")
+        st.dataframe(costo_servicio.reset_index().rename(columns={'Costes tot.reales': 'Costo Total Real'}))
+
+        fig_costo_servicio, ax_costo_servicio = plt.subplots(figsize=(10, 6))
+        sns.barplot(x=costo_servicio.index, y=costo_servicio.values, ax=ax_costo_servicio, palette='magma')
+        ax_costo_servicio.set_title('Costos Totales por Tipo de Servicio')
+        ax_costo_servicio.set_xlabel('Tipo de Servicio')
+        ax_costo_servicio.set_ylabel('Costo Total Real')
+        plt.xticks(rotation=45, ha='right')
+        plt.tight_layout()
+        st.pyplot(fig_costo_servicio)
+    else:
+        st.info("No hay datos de 'TIPO DE SERVICIO' para el análisis de costos por tipo de servicio.")
+
+    st.subheader("Análisis de Duración de Parada")
+    st.markdown("---")
+    if 'TIPO DE SERVICIO' in st.session_state.df.columns and not st.session_state.df['TIPO DE SERVICIO'].isnull().all():
+        parada_servicio = st.session_state.df.groupby('TIPO DE SERVICIO')['Duración de parada'].sum().sort_values(ascending=False)
+        st.write("### Duración de Parada Total por Tipo de Servicio (horas)")
+        st.dataframe(parada_servicio.reset_index().rename(columns={'Duración de parada': 'Duración Total de Parada (hrs)'}))
+
+        fig_parada_servicio, ax_parada_servicio = plt.subplots(figsize=(10, 6))
+        sns.barplot(x=parada_servicio.index, y=parada_servicio.values, ax=ax_parada_servicio, palette='cubehelix')
+        ax_parada_servicio.set_title('Duración de Parada Total por Tipo de Servicio')
+        ax_parada_servicio.set_xlabel('Tipo de Servicio')
+        ax_parada_servicio.set_ylabel('Duración Total de Parada (hrs)')
+        plt.xticks(rotation=45, ha='right')
+        plt.tight_layout()
+        st.pyplot(fig_parada_servicio)
+    else:
+        st.info("No hay datos de 'TIPO DE SERVICIO' para el análisis de duración de parada por tipo de servicio.")
+
+    if 'PROVEEDOR' in st.session_state.df.columns and not st.session_state.df['PROVEEDOR'].isnull().all():
+        parada_proveedor = st.session_state.df.groupby('PROVEEDOR')['Duración de parada'].sum().sort_values(ascending=False)
+        st.write("### Duración de Parada Total por Proveedor (horas)")
+        st.dataframe(parada_proveedor.reset_index().rename(columns={'Duración de parada': 'Duración Total de Parada (hrs)'}))
+
+        fig_parada_proveedor, ax_parada_proveedor = plt.subplots(figsize=(10, 6))
+        sns.barplot(x=parada_proveedor.index, y=parada_proveedor.values, ax=ax_parada_proveedor, palette='rocket')
+        ax_parada_proveedor.set_title('Duración de Parada Total por Proveedor')
+        ax_parada_proveedor.set_xlabel('Proveedor')
+        ax_parada_proveedor.set_ylabel('Duración Total de Parada (hrs)')
+        plt.xticks(rotation=45, ha='right')
+        plt.tight_layout()
+        st.pyplot(fig_parada_proveedor)
+    else:
+        st.info("No hay datos de 'PROVEEDOR' para el análisis de duración de parada por proveedor.")
