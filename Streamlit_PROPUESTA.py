@@ -126,11 +126,11 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
         tmp2.drop(columns=["Equipo"], errors='ignore', inplace=True)
     tmp2 = pd.merge(tmp2, equipo_original, on="Aviso", how="left")
 
-     # Unir por 'Equipo' con IH08
+   # Unir por 'Equipo' con IH08
     tmp3 = pd.merge(tmp2, ih08[[
         "Equipo", "Inic.garantía prov.", "Fin garantía prov.", "Texto", "Indicador ABC",
-        "Denominación de objeto técnico", "Clase de actividad", "Puesto de trabajo"
-    ]], on="Equipo", how="left") # <--- ¡Aquí estaba el error!
+        "Denominación de objeto técnico", "Cl.objeto técnico" # <--- ¡Cambiado aquí!
+    ]], on="Equipo", how="left")
 
     # Unir por 'Equipo' con ZPM015
     tmp4 = pd.merge(tmp3, zpm015[["Equipo", "TIPO DE SERVICIO"]], on="Equipo", how="left")
