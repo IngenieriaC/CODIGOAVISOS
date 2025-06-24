@@ -49,8 +49,8 @@ st.markdown(
         background-color: rgba(255, 255, 255, 0.9); /* Blanco semitransparente */
         padding: 1.5rem;
         border-radius: 0.75rem;
-        box_shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        margin_bottom: 1rem;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Corregido: box_shadow -> box-shadow */
+        margin-bottom: 1rem; /* Corregido: margin_bottom -> margin-bottom */
     }
     /* Mejoras para la tabla (dataframe) */
     .streamlit-dataframe {
@@ -77,9 +77,15 @@ if 'pre_calculated_metrics' not in st.session_state:
     st.session_state.pre_calculated_metrics = None
 if 'page' not in st.session_state:
     st.session_state.page = 'Inicio y Carga de Datos'
-if 'current_analysis_page' not in st.session_state: # Para la paginación en análisis
-    st.session_state.current_analysis_page = 0
+# `current_analysis_page` should be dynamic per analysis type, initialized later
 
+# Helper function to normalize column names
+def normalize_column_name(col_name):
+    """
+    Normaliza el nombre de una columna para que sea compatible con Python y más fácil de usar.
+    Convierte a minúsculas, reemplaza espacios y caracteres especiales por guiones bajos.
+    """
+    return re.sub(r'[^a-z0-9_]+', '', col_name.strip().lower().replace(' ', '_'))
 
 # --- Función de carga & unión (optimizada para Streamlit) ---
 @st.cache_data
@@ -105,54 +111,79 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
     uploaded_file_buffer.seek(0)
     zpm015 = pd.read_excel(uploaded_file_buffer, sheet_name=4)
 
-    # Limpiar encabezados
-    for df_temp in (iw29, iw39, ih08, iw65, zpm015):
-        df_temp.columns = df_temp.columns.str.strip()
+    # Normalizar encabezados inmediatamente después de la carga para todos los DataFrames
+    for df_temp in [iw29, iw39, ih08, iw65, zpm015]:
+        df_temp.columns = [normalize_column_name(col) for col in df_temp.columns]
 
-    # Guardar "Equipo" original desde IW29 para evitar pérdida
-    equipo_original = iw29[["Aviso", "Equipo", "Duración de parada", "Descripción"]].copy()
+    # Guardar "equipo" original desde IW29 para evitar pérdida
+    # Asegurarse que las columnas existen antes de intentar acceder a ellas
+    equipo_original_cols = ["aviso", "equipo", "duracion_de_parada", "descripcion"]
+    existing_equipo_original_cols = [col for col in equipo_original_cols if col in iw29.columns]
+    equipo_original = iw29[existing_equipo_original_cols].copy()
 
-    # Extraer solo columnas necesarias de iw39 para el merge (incluyendo 'Total general (real)')
-    iw39_subset = iw39[["Aviso", "Total general (real)"]]
+    # Extraer solo columnas necesarias de iw39 para el merge (incluyendo 'total_general_real')
+    # Asegurarse de usar el nombre normalizado 'total_general_real'
+    iw39_subset_cols = ["aviso", "total_general_real"]
+    existing_iw39_subset_cols = [col for col in iw39_subset_cols if col in iw39.columns]
+    iw39_subset = iw39[existing_iw39_subset_cols]
 
-    # Unir por 'Aviso'
-    tmp1 = pd.merge(iw29, iw39_subset, on="Aviso", how="left")
-    tmp2 = pd.merge(tmp1, iw65, on="Aviso", how="left")
+    # Unir por 'aviso'
+    tmp1 = pd.merge(iw29, iw39_subset, on="aviso", how="left", suffixes=('_iw29', '_iw39'))
+    tmp2 = pd.merge(tmp1, iw65, on="aviso", how="left")
 
-    # Restaurar el valor original de "Equipo" de IW29 después del merge
-    if "Equipo" in tmp2.columns:
-        tmp2.drop(columns=["Equipo"], errors='ignore', inplace=True)
-    tmp2 = pd.merge(tmp2, equipo_original, on="Aviso", how="left")
+    # Restaurar el valor original de "equipo" de IW29 después del merge
+    # Esto asegura que la columna 'equipo' final sea la de IW29, la fuente principal.
+    if "equipo_iw29" in tmp2.columns:
+        tmp2['equipo'] = tmp2['equipo_iw29']
+        tmp2.drop(columns=[col for col in ['equipo_iw29', 'equipo_iw39'] if col in tmp2.columns], errors='ignore', inplace=True)
+    elif "equipo" not in tmp2.columns and "equipo_original" in equipo_original.columns: # Fallback if original equipo somehow wasn't merged
+         tmp2 = pd.merge(tmp2, equipo_original[['aviso', 'equipo']], on='aviso', how='left', suffixes=('', '_original_restored'))
+         if 'equipo_original_restored' in tmp2.columns:
+             tmp2['equipo'] = tmp2['equipo_original_restored']
+             tmp2.drop(columns=['equipo_original_restored'], inplace=True)
 
-   # Unir por 'Equipo' con IH08
-    tmp3 = pd.merge(tmp2, ih08[[
-        "Equipo", "Inic.garantía prov.", "Fin garantía prov.", "Texto", "Indicador ABC",
-        "Denominación de objeto técnico", "Cl.objeto técnico"
-    ]], on="Equipo", how="left")
 
-    # Unir por 'Equipo' con ZPM015
-    tmp4 = pd.merge(tmp3, zpm015[["Equipo", "TIPO DE SERVICIO"]], on="Equipo", how="left")
-    # Renombrar columnas
-    tmp4.rename(columns={
-        "Texto": "Texto_equipo",
-        "Total general (real)": "Costes tot.reales"
-    }, inplace=True)
+    # Unir por 'equipo' con IH08
+    ih08_cols = [
+        "equipo", "inicgarantia_prov", "fin_garantia_prov", "texto", "indicador_abc",
+        "denominacion_de_objeto_tecnico", "cl_objeto_tecnico"
+    ]
+    existing_ih08_cols = [col for col in ih08_cols if col in ih08.columns]
+    tmp3 = pd.merge(tmp2, ih08[existing_ih08_cols], on="equipo", how="left", suffixes=('_tmp2', '_ih08'))
 
-    columnas_finales = [
-        "Aviso", "Orden", "Fecha de aviso", "Código postal", "Status del sistema",
-        "Descripción", "Ubicación técnica", "Indicador", "Equipo",
-        "Denominación de objeto técnico", "Denominación ejecutante",
-        "Duración de parada", "Centro de coste", "Costes tot.reales",
-        "Inic.garantía prov.", "Fin garantía prov.", "Texto_equipo",
-        "Indicador ABC", "Texto código acción", "Texto de acción",
-        "Texto grupo acción", "TIPO DE SERVICIO",
-        "Clase de actividad", "Puesto de trabajo"
+    # Unir por 'equipo' con ZPM015
+    zpm015_cols = ["equipo", "tipo_de_servicio"]
+    existing_zpm015_cols = [col for col in zpm015_cols if col in zpm015.columns]
+    tmp4 = pd.merge(tmp3, zpm015[existing_zpm015_cols], on="equipo", how="left", suffixes=('_tmp3', '_zpm015'))
+
+    # Renombrar columnas para consistencia y nombres finales deseados
+    final_rename_mapping = {
+        "texto": "texto_equipo", # Asumiendo que "texto" de IH08 se convierte en "texto_equipo"
+        "total_general_real": "costes_tot_reales", # Renombrar a costes_tot_reales
+        "denominacion_ejecutante": "proveedor" # Asumiendo "Denominación ejecutante" se convierte en "proveedor"
+    }
+    tmp4.rename(columns=final_rename_mapping, inplace=True)
+
+    # Definir las columnas finales deseables (con nombres normalizados)
+    columnas_finales_deseables = [
+        "aviso", "orden", "fecha_de_aviso", "codigo_postal", "status_del_sistema",
+        "descripcion", "ubicacion_tecnica", "indicador", "equipo",
+        "denominacion_de_objeto_tecnico", "proveedor",
+        "duracion_de_parada", "centro_de_coste", "costes_tot_reales",
+        "inicgarantia_prov", "fin_garantia_prov", "texto_equipo",
+        "indicador_abc", "texto_codigo_accion", "texto_de_accion",
+        "texto_grupo_accion", "tipo_de_servicio",
+        "clase_de_actividad", "puesto_de_trabajo"
     ]
 
     # Filtrar solo las columnas que realmente existen en tmp4
-    columnas_finales = [col for col in columnas_finales if col in tmp4.columns]
+    final_df = tmp4[[col for col in columnas_finales_deseables if col in tmp4.columns]]
 
-    return tmp4[columnas_finales]
+    # Limpiar posibles duplicados de columnas después de múltiples merges con suffixes
+    # Esto es una medida de seguridad, ya que los suffixes deberían manejarlos
+    final_df = final_df.loc[:,~final_df.columns.duplicated()].copy()
+
+    return final_df
 
 # --- HORARIO Mapping ---
 horarios_dict = {
@@ -206,43 +237,60 @@ horarios_dict = {
 # --- Funciones para calcular indicadores de desempeño técnico ---
 def calcular_disponibilidad(df_subset: pd.DataFrame, horarios: dict, group_by_col: str) -> pd.Series:
     """Calcula la disponibilidad promedio por la columna de agrupación."""
-    # Eliminar filas con NaN en 'equipo' para evitar KeyError
-    df_subset_cleaned = df_subset.dropna(subset=['equipo']).copy()
+    # Asegurarse de trabajar en una copia para evitar SettingWithCopyWarning
+    df_subset_cleaned = df_subset.copy()
+
+    # Validar que las columnas necesarias existan
+    required_cols = ['equipo', 'duracion_de_parada', 'denominacion_de_objeto_tecnico']
+    if not all(col in df_subset_cleaned.columns for col in required_cols):
+        st.warning(f"Columnas necesarias para disponibilidad no encontradas: {', '.join([col for col in required_cols if col not in df_subset_cleaned.columns])}")
+        return pd.Series(dtype=float)
+
+    df_subset_cleaned = df_subset_cleaned.dropna(subset=['equipo']).copy()
     if df_subset_cleaned.empty:
         return pd.Series(dtype=float)
 
+    # Convertir 'duracion_de_parada' a numérico
     df_subset_cleaned['duracion_de_parada'] = pd.to_numeric(df_subset_cleaned['duracion_de_parada'], errors='coerce').fillna(0)
 
-    df_subset_cleaned['Horario_Key'] = df_subset_cleaned['denominacion_de_objeto_tecnico'].apply(
-        lambda x: next((key for key in horarios.keys() if key.lower() in str(x).lower()), None)
-    )
+    # Buscar la clave de horario en 'denominacion_de_objeto_tecnico' usando regex
+    def find_horario_key(text):
+        match = re.search(r'(HORARIO_\d+)', str(text).upper())
+        return match.group(1) if match else None
 
+    df_subset_cleaned['horario_key'] = df_subset_cleaned['denominacion_de_objeto_tecnico'].apply(find_horario_key)
+
+    # Valores por defecto en caso de que horarios_dict esté vacío o la clave no se encuentre
     default_horas_dia = np.mean([h[0] for h in horarios.values()]) if horarios else 8
     default_dias_anio = np.mean([h[1] for h in horarios.values()]) if horarios else 250
 
-    df_subset_cleaned['Horas_Dia_Equipo'] = df_subset_cleaned.apply(
-        lambda row: horarios[row['Horario_Key']][0] if row['Horario_Key'] in horarios else default_horas_dia,
+    df_subset_cleaned['horas_dia_equipo'] = df_subset_cleaned.apply(
+        lambda row: horarios[row['horario_key']][0] if row['horario_key'] in horarios else default_horas_dia,
         axis=1
     )
-    df_subset_cleaned['Dias_Anio_Equipo'] = df_subset_cleaned.apply(
-        lambda row: horarios[row['Horario_Key']][1] if row['Horario_Key'] in horarios else default_dias_anio,
+    df_subset_cleaned['dias_anio_equipo'] = df_subset_cleaned.apply(
+        lambda row: horarios[row['horario_key']][1] if row['horario_key'] in horarios else default_dias_anio,
         axis=1
     )
 
-    df_subset_cleaned['Horas_Operativas_Totales'] = df_subset_cleaned['Horas_Dia_Equipo'] * df_subset_cleaned['Dias_Anio_Equipo']
+    df_subset_cleaned['horas_operativas_totales'] = df_subset_cleaned['horas_dia_equipo'] * df_subset_cleaned['dias_anio_equipo']
 
     sum_parada_equipo = df_subset_cleaned.groupby('equipo')['duracion_de_parada'].sum()
 
-    horas_op_equipo = df_subset_cleaned.drop_duplicates(subset='equipo').set_index('equipo')['Horas_Operativas_Totales']
+    horas_op_equipo = df_subset_cleaned.drop_duplicates(subset='equipo').set_index('equipo')['horas_operativas_totales']
 
+    # Reindex para asegurar que ambos Series tengan el mismo índice
     horas_op_equipo = horas_op_equipo.reindex(sum_parada_equipo.index).fillna(0)
 
-    # Evitar división por cero
-    disponibilidad_equipo = (horas_op_equipo - sum_parada_equipo) / horas_op_equipo * 100
-    disponibilidad_equipo = disponibilidad_equipo.replace([-np.inf, np.inf], np.nan).fillna(0)
+    # Evitar división por cero y manejar valores infinitos/NaN
+    disponibilidad_equipo = (horas_op_equipo - sum_parada_equipo) / horas_op_equipo
+    disponibilidad_equipo = disponibilidad_equipo.replace([-np.inf, np.inf], np.nan).fillna(0) * 100 # Convertir a porcentaje
 
-    # Agregamos por la columna de agrupación seleccionada (tipo_de_servicio o proveedor)
-    # Filtrar equipos que no están en disponibilidad_equipo.index
+    # Agregamos por la columna de agrupación seleccionada
+    if group_by_col not in df_subset_cleaned.columns:
+        st.warning(f"La columna de agrupación '{group_by_col}' no se encontró para calcular la disponibilidad.")
+        return pd.Series(dtype=float)
+
     disponibilidad_agrupada = df_subset_cleaned.groupby(group_by_col)['equipo'].apply(
         lambda equipos: disponibilidad_equipo[equipos.unique().intersection(disponibilidad_equipo.index)].mean()
         if not equipos.unique().intersection(disponibilidad_equipo.index).empty else 0
@@ -251,10 +299,24 @@ def calcular_disponibilidad(df_subset: pd.DataFrame, horarios: dict, group_by_co
 
 def calcular_mttr(df_subset: pd.DataFrame, group_by_col: str) -> pd.Series:
     """Calcula el MTTR promedio por la columna de agrupación."""
-    df_subset_cleaned = df_subset.dropna(subset=['equipo', 'aviso']).copy() # Asegurarse que 'equipo' y 'aviso' no sean NaN
+    df_subset_cleaned = df_subset.copy()
+
+    required_cols = ['equipo', 'aviso', 'duracion_de_parada']
+    if not all(col in df_subset_cleaned.columns for col in required_cols):
+        st.warning(f"Columnas necesarias para MTTR no encontradas: {', '.join([col for col in required_cols if col not in df_subset_cleaned.columns])}")
+        return pd.Series(dtype=float)
+
+    df_subset_cleaned = df_subset_cleaned.dropna(subset=['equipo', 'aviso']).copy()
     if df_subset_cleaned.empty:
         return pd.Series(dtype=float)
+
     df_subset_cleaned['duracion_de_parada'] = pd.to_numeric(df_subset_cleaned['duracion_de_parada'], errors='coerce').fillna(0)
+
+    # Asegurarse de que group_by_col existe
+    if group_by_col not in df_subset_cleaned.columns:
+        st.warning(f"La columna de agrupación '{group_by_col}' no se encontró para calcular el MTTR.")
+        return pd.Series(dtype=float)
+
     mttr = df_subset_cleaned.groupby(group_by_col).apply(
         lambda x: x['duracion_de_parada'].sum() / x['aviso'].nunique() if x['aviso'].nunique() > 0 else 0
     )
@@ -262,42 +324,55 @@ def calcular_mttr(df_subset: pd.DataFrame, group_by_col: str) -> pd.Series:
 
 def calcular_mtbf(df_subset: pd.DataFrame, horarios: dict, group_by_col: str) -> pd.Series:
     """Calcula el MTBF promedio por la columna de agrupación."""
-    df_subset_cleaned = df_subset.dropna(subset=['equipo', 'aviso']).copy() # Asegurarse que 'equipo' y 'aviso' no sean NaN
+    df_subset_cleaned = df_subset.copy()
+
+    required_cols = ['equipo', 'aviso', 'duracion_de_parada', 'denominacion_de_objeto_tecnico']
+    if not all(col in df_subset_cleaned.columns for col in required_cols):
+        st.warning(f"Columnas necesarias para MTBF no encontradas: {', '.join([col for col in required_cols if col not in df_subset_cleaned.columns])}")
+        return pd.Series(dtype=float)
+
+    df_subset_cleaned = df_subset_cleaned.dropna(subset=['equipo', 'aviso']).copy()
     if df_subset_cleaned.empty:
         return pd.Series(dtype=float)
 
     df_subset_cleaned['duracion_de_parada'] = pd.to_numeric(df_subset_cleaned['duracion_de_parada'], errors='coerce').fillna(0)
 
-    df_subset_cleaned['Horario_Key'] = df_subset_cleaned['denominacion_de_objeto_tecnico'].apply(
-        lambda x: next((key for key in horarios.keys() if key.lower() in str(x).lower()), None)
-    )
+    def find_horario_key(text):
+        match = re.search(r'(HORARIO_\d+)', str(text).upper())
+        return match.group(1) if match else None
+
+    df_subset_cleaned['horario_key'] = df_subset_cleaned['denominacion_de_objeto_tecnico'].apply(find_horario_key)
+
     default_horas_dia = np.mean([h[0] for h in horarios.values()]) if horarios else 8
     default_dias_anio = np.mean([h[1] for h in horarios.values()]) if horarios else 250
 
-    df_subset_cleaned['Horas_Dia_Equipo'] = df_subset_cleaned.apply(
-        lambda row: horarios[row['Horario_Key']][0] if row['Horario_Key'] in horarios else default_horas_dia,
+    df_subset_cleaned['horas_dia_equipo'] = df_subset_cleaned.apply(
+        lambda row: horarios[row['horario_key']][0] if row['horario_key'] in horarios else default_horas_dia,
         axis=1
     )
-    df_subset_cleaned['Dias_Anio_Equipo'] = df_subset_cleaned.apply(
-        lambda row: horarios[row['Horario_Key']][1] if row['Horario_Key'] in horarios else default_dias_anio,
+    df_subset_cleaned['dias_anio_equipo'] = df_subset_cleaned.apply(
+        lambda row: horarios[row['horario_key']][1] if row['horario_key'] in horarios else default_dias_anio,
         axis=1
     )
-    df_subset_cleaned['Horas_Operativas_Totales_Equipo'] = df_subset_cleaned['Horas_Dia_Equipo'] * df_subset_cleaned['Dias_Anio_Equipo']
+    df_subset_cleaned['horas_operativas_totales_equipo'] = df_subset_cleaned['horas_dia_equipo'] * df_subset_cleaned['dias_anio_equipo']
 
     total_parada_por_equipo = df_subset_cleaned.groupby('equipo')['duracion_de_parada'].sum()
-
     num_avisos_por_equipo = df_subset_cleaned.groupby('equipo')['aviso'].nunique()
 
-    horas_op_unicas_equipo = df_subset_cleaned.drop_duplicates(subset='equipo').set_index('equipo')['Horas_Operativas_Totales_Equipo']
+    horas_op_unicas_equipo = df_subset_cleaned.drop_duplicates(subset='equipo').set_index('equipo')['horas_operativas_totales_equipo']
 
     total_parada_por_equipo = total_parada_por_equipo.reindex(horas_op_unicas_equipo.index).fillna(0)
     num_avisos_por_equipo = num_avisos_por_equipo.reindex(horas_op_unicas_equipo.index).fillna(0)
 
     # Evitar división por cero
     mtbf_equipo = (horas_op_unicas_equipo - total_parada_por_equipo) / num_avisos_por_equipo
-    mtbf_equipo = mtbf_equipo.replace([np.inf, -np.inf], np.nan).fillna(0) # Manejar divisiones por cero
+    mtbf_equipo = mtbf_equipo.replace([np.inf, -np.inf], np.nan).fillna(0)
 
-    # Filtrar equipos que no están en mtbf_equipo.index
+    # Asegurarse de que group_by_col existe
+    if group_by_col not in df_subset_cleaned.columns:
+        st.warning(f"La columna de agrupación '{group_by_col}' no se encontró para calcular el MTBF.")
+        return pd.Series(dtype=float)
+
     mtbf_agrupado = df_subset_cleaned.groupby(group_by_col)['equipo'].apply(
         lambda equipos: mtbf_equipo[equipos.unique().intersection(mtbf_equipo.index)].mean()
         if not equipos.unique().intersection(mtbf_equipo.index).empty else 0
@@ -489,7 +564,8 @@ rangos_detallados = {
 # --- Clase para el manejo de análisis generalizado y paginación ---
 class AnalysisApp:
     def __init__(self, df):
-        self.df = df
+        self.df = df.copy() # Asegurarse de trabajar en una copia para evitar SettingWithCopyWarning
+
         # Usar nombres de columnas normalizados
         self.EJECUTANTE_COL_NAME_NORMALIZED = "proveedor"
         self.COL_COSTOS_NORMALIZED = "costes_tot_reales"
@@ -499,21 +575,21 @@ class AnalysisApp:
         if 'descripcion' in self.df.columns:
             self.df['description_category'] = self.df['descripcion'].apply(self._categorize_description)
         else:
-            self.df['description_category'] = "Sin Categoría" # Fallback
+            self.df['description_category'] = "sin_categoria" # Fallback y nombre normalizado
 
         # Opciones de análisis dinámicas
         self.opciones_menu = {
             "Costos por Ejecutante": (self.EJECUTANTE_COL_NAME_NORMALIZED, self.COL_COSTOS_NORMALIZED, "costos"),
-            "Avisos por Ejecutante": (self.EJECUTANTE_COL_NAME_NORMALIZED, None, "avisos"), # None para conteo de avisos
-            "Costos por Objeto Técnico": ("denominacion_de_objeto_tecnico", self.COL_COSTOS_NORMALIZED, "costos"), # Nueva
+            "Avisos por Ejecutante": (self.EJECUTANTE_COL_NAME_NORMALIZED, None, "avisos"),
+            "Costos por Objeto Técnico": ("denominacion_de_objeto_tecnico", self.COL_COSTOS_NORMALIZED, "costos"),
             "Avisos por Objeto Técnico": ("denominacion_de_objeto_tecnico", None, "avisos"),
-            "Costos por Texto Código Acción": ("texto_codigo_accion", self.COL_COSTOS_NORMALIZED, "costos"), # Nueva
+            "Costos por Texto Código Acción": ("texto_codigo_accion", self.COL_COSTOS_NORMALIZED, "costos"),
             "Avisos por Texto Código Acción": ("texto_codigo_accion", None, "avisos"),
-            "Costos por Texto de Acción": ("texto_de_accion", self.COL_COSTOS_NORMALIZED, "costos"), # Nueva
+            "Costos por Texto de Acción": ("texto_de_accion", self.COL_COSTOS_NORMALIZED, "costos"),
             "Avisos por Texto de Acción": ("texto_de_accion", None, "avisos"),
-            "Costos por Tipo de Servicio": ("tipo_de_servicio", self.COL_COSTOS_NORMALIZED, "costos"), # Nueva
+            "Costos por Tipo de Servicio": ("tipo_de_servicio", self.COL_COSTOS_NORMALIZED, "costos"),
             "Avisos por Tipo de Servicio": ("tipo_de_servicio", None, "avisos"),
-            "Costos por Categoría de Descripción": ("description_category", self.COL_COSTOS_NORMALIZED, "costos"), # Nueva
+            "Costos por Categoría de Descripción": ("description_category", self.COL_COSTOS_NORMALIZED, "costos"),
             "Avisos por Categoría de Descripción": ("description_category", None, "avisos"),
         }
         
@@ -524,7 +600,6 @@ class AnalysisApp:
             if (v[0] in self.df.columns or v[0] == "description_category") 
             and (v[1] is None or v[1] in self.df.columns) 
         }
-        
 
     def _categorize_description(self, description):
         """Categoriza las descripciones (ejemplo, expande según tus necesidades)."""
@@ -541,15 +616,23 @@ class AnalysisApp:
     def display_analysis(self):
         st.subheader("Análisis General de Datos")
 
+        # Obtener la lista de opciones de análisis disponibles
+        available_analysis_options = list(self.opciones_menu.keys())
+
+        # Si no hay opciones disponibles, mostrar una advertencia y salir
+        if not available_analysis_options:
+            st.warning("No hay opciones de análisis disponibles. Asegúrate de que las columnas necesarias existan en los datos cargados.")
+            return
+
         analysis_type = st.selectbox(
             "Selecciona el tipo de análisis:",
-            list(self.opciones_menu.keys()),
+            available_analysis_options,
             key="analysis_type_select"
         )
 
         group_col, value_col, analysis_metric = self.opciones_menu[analysis_type]
 
-        # Asegurarse que la columna de agrupación exista (excepto para 'description_category' que es nueva)
+        # Asegurarse que la columna de agrupación exista
         if group_col not in self.df.columns and group_col != "description_category":
             st.warning(f"La columna '{group_col}' no se encontró en los datos para este análisis.")
             return
@@ -558,15 +641,25 @@ class AnalysisApp:
             if value_col not in self.df.columns:
                 st.warning(f"La columna de costos '{value_col}' no se encontró en los datos para este análisis.")
                 return
+            # Convertir la columna de costos a numérico, manejando errores
+            self.df[value_col] = pd.to_numeric(self.df[value_col], errors='coerce').fillna(0)
             grouped_data = self.df.groupby(group_col)[value_col].sum().sort_values(ascending=False)
             title = f"Costos Totales por {analysis_type.split(' por ')[1].replace('por', 'según')}"
             y_label = "Costo Total Real"
         elif analysis_metric == "avisos":
+            # Asegurarse que la columna 'aviso' exista
+            if 'aviso' not in self.df.columns:
+                st.warning("La columna 'aviso' no se encontró en los datos para el conteo de avisos.")
+                return
             grouped_data = self.df.groupby(group_col)['aviso'].nunique().sort_values(ascending=False)
             title = f"Cantidad de Avisos por {analysis_type.split(' por ')[1].replace('por', 'según')}"
             y_label = "Cantidad de Avisos"
         else:
             st.error("Métrica de análisis no reconocida.")
+            return
+
+        if grouped_data.empty:
+            st.info(f"No hay datos para mostrar para '{analysis_type}'.")
             return
 
         # Paginación
@@ -575,10 +668,12 @@ class AnalysisApp:
         total_pages = (total_items + items_per_page - 1) // items_per_page
 
         # Inicializa la página actual si no existe o si se cambia el tipo de análisis
-        if f'analysis_page_{analysis_type}' not in st.session_state:
-            st.session_state[f'analysis_page_{analysis_type}'] = 0
-        
-        current_page = st.session_state[f'analysis_page_{analysis_type}']
+        # Usar una clave única para el tipo de análisis para resetear la página cuando cambia el análisis
+        current_analysis_page_key = f'analysis_page_{analysis_type}'
+        if current_analysis_page_key not in st.session_state:
+            st.session_state[current_analysis_page_key] = 0
+
+        current_page = st.session_state[current_analysis_page_key]
 
         start_idx = current_page * items_per_page
         end_idx = min(start_idx + items_per_page, total_items)
@@ -586,21 +681,21 @@ class AnalysisApp:
         paginated_data = grouped_data.iloc[start_idx:end_idx]
 
         st.write(f"### {title}")
-        st.dataframe(paginated_data.reset_index().rename(columns={grouped_data.name: y_label}))
+        st.dataframe(paginated_data.reset_index().rename(columns={paginated_data.name: y_label}))
 
         # Controles de paginación
         col1, col2, col3 = st.columns([1, 2, 1])
         with col1:
             if st.button("Página Anterior", key=f"prev_page_{analysis_type}"):
                 if current_page > 0:
-                    st.session_state[f'analysis_page_{analysis_type}'] -= 1
+                    st.session_state[current_analysis_page_key] -= 1
                     st.rerun()
         with col2:
             st.write(f"Página {current_page + 1} de {total_pages}")
         with col3:
             if st.button("Página Siguiente", key=f"next_page_{analysis_type}"):
                 if current_page < total_pages - 1:
-                    st.session_state[f'analysis_page_{analysis_type}'] += 1
+                    st.session_state[current_analysis_page_key] += 1
                     st.rerun()
 
         # Gráfico
@@ -609,347 +704,236 @@ class AnalysisApp:
             sns.barplot(x=paginated_data.values, y=paginated_data.index, ax=ax, palette='viridis')
             ax.set_title(title)
             ax.set_xlabel(y_label)
-            ax.set_ylabel(group_col)
-            plt.tight_layout()
-            st.pyplot(fig)
+            ax.set_ylabel(group_col.replace('_', ' ').title()) # Mejorar la etiqueta del eje Y
+            plt.tight_layout() # Ajustar el layout para evitar superposición de etiquetas
+            st.pyplot(fig) # Mostrar el gráfico en Streamlit
+
+# --- Main App Logic (PAGES) ---
+def main():
+    st.sidebar.title("Navegación")
+    page_options = ['Inicio y Carga de Datos', 'Análisis de Datos', 'Evaluación de Desempeño']
+    st.session_state.page = st.sidebar.radio("Ir a:", page_options, index=page_options.index(st.session_state.page))
+
+    if st.session_state.page == 'Inicio y Carga de Datos':
+        st.header("Carga de Datos de Operación y Mantenimiento")
+        st.write("Por favor, sube un archivo Excel con las 5 hojas de datos: IW29, IW39, IH08, IW65, ZPM015.")
+
+        uploaded_file = st.file_uploader("Arrastra y suelta tu archivo Excel aquí", type=["xlsx"], key="file_uploader")
+
+        if uploaded_file is not None:
+            # Almacenar el buffer original en session_state para que st.cache_data pueda acceder
+            st.session_state.original_excel_buffer = io.BytesIO(uploaded_file.getvalue())
+
+            with st.spinner("Cargando y procesando datos..."):
+                try:
+                    st.session_state.df = load_and_merge_data(st.session_state.original_excel_buffer)
+                    st.success("Datos cargados y procesados exitosamente.")
+                    st.write("Vista previa de los datos combinados:")
+                    st.dataframe(st.session_state.df.head())
+
+                    # Cambiar automáticamente a la página de Análisis después de una carga exitosa
+                    st.session_state.page = 'Análisis de Datos'
+                    st.rerun()
+
+                except Exception as e:
+                    st.error(f"Error al procesar el archivo: {e}")
+                    st.exception(e)
+                    st.session_state.df = None
+
+    elif st.session_state.page == 'Análisis de Datos':
+        st.header("Sección de Análisis de Datos")
+        if st.session_state.df is not None:
+            analysis_app = AnalysisApp(st.session_state.df)
+            analysis_app.display_analysis()
         else:
-            st.info("No hay datos para mostrar en esta página.")
+            st.warning("Por favor, carga un archivo Excel en la sección 'Inicio y Carga de Datos' primero.")
+            if st.button("Ir a Carga de Datos"):
+                st.session_state.page = 'Inicio y Carga de Datos'
+                st.rerun()
 
+    elif st.session_state.page == 'Evaluación de Desempeño':
+        st.header("Evaluación de Desempeño")
+        if st.session_state.df is None:
+            st.warning("Por favor, carga un archivo Excel en la sección 'Inicio y Carga de Datos' para realizar la evaluación.")
+            if st.button("Ir a Carga de Datos"):
+                st.session_state.page = 'Inicio y Carga de Datos'
+                st.rerun()
+            return
 
-# --- Sidebar para navegación ---
-st.sidebar.title("Menú Principal")
-page_options = [
-    "Inicio y Carga de Datos",
-    "Evaluación de Desempeño",
-    "Análisis General", # Cambiado a "Análisis General"
-]
-selected_page = st.sidebar.radio("Ir a:", page_options, key="main_menu_selection")
-st.session_state.page = selected_page
-
-# --- Contenido de la página ---
-
-if st.session_state.page == "Inicio y Carga de Datos":
-    st.title("¡Hola, usuario Sura! 👋")
-    st.markdown("---")
-    st.header("Proyecto de **Gerencia de Gestión Administrativa** en Ingeniería Clínica")
-    st.markdown("""
-        Aquí podrás **analizar y gestionar los datos de avisos** para optimizar los procesos.
-        Por favor, **sube el archivo `BASE DE DATOS.XLSX`** para comenzar.
-    """)
-
-    uploaded_file = st.file_uploader("Sube tu archivo 'BASE DE DATOS.XLSX' aquí", type=["xlsx"])
-
-    if uploaded_file:
-        # Guardar el buffer del archivo original para descarga
-        st.session_state.original_excel_buffer = io.BytesIO(uploaded_file.getvalue())
-        st.session_state.original_excel_buffer.seek(0) # Rebobinar para futuras lecturas
-
-        file_buffer = io.BytesIO(uploaded_file.getvalue())
-
-        with st.spinner('Cargando y procesando datos... Esto puede tomar un momento.'):
-            try:
-                df_processed = load_and_merge_data(file_buffer)
-
-                initial_rows = len(df_processed)
-                # Asegúrate de usar el nombre de columna normalizado 'status_del_sistema'
-                df_processed = df_processed[~df_processed["Status del sistema"].str.contains("PTBO", case=False, na=False)]
-                st.info(f"Se eliminaron {initial_rows - len(df_processed)} registros con 'PTBO' en 'Status del sistema'.")
-
-                # Asegúrate de usar el nombre de columna normalizado 'costes_tot_reales' y 'duracion_de_parada'
-                df_processed['Costes tot.reales'] = pd.to_numeric(df_processed['Costes tot.reales'], errors='coerce').fillna(0)
-                df_processed['Duración de parada'] = pd.to_numeric(df_processed['Duración de parada'], errors='coerce').fillna(0)
-
-                if 'Denominación ejecutante' in df_processed.columns:
-                    df_processed.rename(columns={'Denominación ejecutante': 'PROVEEDOR'}, inplace=True)
-                else:
-                    st.warning("La columna 'Denominación ejecutante' no se encontró para usar como 'PROVEEDOR'. Se usará 'Desconocido'.")
-                    df_processed['PROVEEDOR'] = 'Desconocido'
-                
-                # Normalizar nombres de columnas para ser usados en análisis (ej. a snake_case)
-                # Esta es la parte CRÍTICA para que todo el código subsiguiente use nombres consistentes.
-                df_processed.columns = [
-                    col.lower().replace(' ', '_').replace('.', '').replace('(', '').replace(')', '').replace('ó', 'o').replace('á', 'a').replace('é', 'e').replace('í', 'i').replace('ú', 'u')
-                    for col in df_processed.columns
-                ]
-                # Renombrar 'denominacion_ejecutante' a 'proveedor' si no se hizo antes
-                if 'denominacion_ejecutante' in df_processed.columns:
-                    df_processed.rename(columns={'denominacion_ejecutante': 'proveedor'}, inplace=True)
-                
-                # *** Nuevo paso para manejar NaN en 'equipo' y columnas clave antes de guardar en session_state ***
-                initial_equip_nan_rows = df_processed['equipo'].isnull().sum()
-                if initial_equip_nan_rows > 0:
-                    st.info(f"Se encontraron y manejaron {initial_equip_nan_rows} registros con valores faltantes en la columna 'equipo'.")
-                    # Puedes elegir entre dropear, llenar con un valor por defecto o alertar
-                    # Aquí vamos a dropear los NaN en 'equipo' para asegurar la robustez de las funciones de cálculo
-                    df_processed = df_processed.dropna(subset=['equipo', 'aviso']).copy()
-                    
-                st.session_state.df = df_processed
-
-                # Pre-calculate all technical metrics once after data load
-                st.session_state.pre_calculated_metrics = {}
-                
-                # Las funciones de cálculo de métricas técnicas ahora esperan los nombres de columna normalizados
-                if 'tipo_de_servicio' in st.session_state.df.columns and not st.session_state.df['tipo_de_servicio'].isnull().all():
-                    # Recalculamos disponibilidad, MTTR, MTBF y rendimiento para ambos modos
-                    st.session_state.pre_calculated_metrics['disponibilidad_servicio'] = calcular_disponibilidad(st.session_state.df, horarios_dict, 'tipo_de_servicio')
-                    st.session_state.pre_calculated_metrics['mttr_servicio'] = calcular_mttr(st.session_state.df, 'tipo_de_servicio')
-                    st.session_state.pre_calculated_metrics['mtbf_servicio'] = calcular_mtbf(st.session_state.df, horarios_dict, 'tipo_de_servicio')
-                    st.session_state.pre_calculated_metrics['rendimiento_servicio'] = clasificar_rendimiento(st.session_state.pre_calculated_metrics['disponibilidad_servicio'])
-                else:
-                    st.warning("La columna 'tipo_de_servicio' no está disponible o está vacía para el cálculo de métricas técnicas por servicio.")
-
-                if 'proveedor' in st.session_state.df.columns and not st.session_state.df['proveedor'].isnull().all():
-                    st.session_state.pre_calculated_metrics['disponibilidad_proveedor'] = calcular_disponibilidad(st.session_state.df, horarios_dict, 'proveedor')
-                    st.session_state.pre_calculated_metrics['mttr_proveedor'] = calcular_mttr(st.session_state.df, 'proveedor')
-                    st.session_state.pre_calculated_metrics['mtbf_proveedor'] = calcular_mtbf(st.session_state.df, horarios_dict, 'proveedor')
-                    st.session_state.pre_calculated_metrics['rendimiento_proveedor'] = clasificar_rendimiento(st.session_state.pre_calculated_metrics['disponibilidad_proveedor'])
-                else:
-                    st.warning("La columna 'proveedor' no está disponible o está vacía para el cálculo de métricas técnicas por proveedor.")
-
-
-                st.success("✅ Datos cargados y procesados exitosamente.")
-                st.write(f"**Filas finales:** {len(st.session_state.df)} – **Columnas:** {len(st.session_state.df.columns)}")
-
-                st.markdown("---")
-                st.subheader("Descarga de Datos")
-
-                # Botón para descargar el archivo Excel original
-                if st.session_state.original_excel_buffer:
-                    st.download_button(
-                        label="Descargar Excel Original",
-                        data=st.session_state.original_excel_buffer,
-                        file_name="BASE_DE_DATOS_original.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        key="download_original_excel"
-                    )
-
-                csv_output = st.session_state.df.to_csv(index=False).encode('utf-8')
-                st.download_button(
-                    label="Descargar Datos Procesados (CSV)",
-                    data=csv_output,
-                    file_name="avisos_filtrados.csv",
-                    mime="text/csv",
-                    help="Descarga el archivo procesado en formato CSV."
-                )
-
-                excel_buffer_processed = io.BytesIO()
-                st.session_state.df.to_excel(excel_buffer_processed, index=False, engine='openpyxl')
-                excel_buffer_processed.seek(0)
-                st.download_button(
-                    label="Descargar Datos Procesados (Excel)",
-                    data=excel_buffer_processed,
-                    file_name="avisos_filtrados.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    help="Descarga el archivo procesado en formato XLSX."
-                )
-
-                st.markdown("---")
-                st.success("¡El procesamiento ha finalizado! Ahora puedes descargar tus datos o seguir explorando otras secciones.")
-
-            except Exception as e:
-                st.error(f"❌ ¡Ups! Ocurrió un error al procesar el archivo: {e}")
-                st.warning("Por favor, verifica que el archivo subido sea `BASE DE DATOS.XLSX` y tenga el formato de hojas esperado.")
-                st.exception(e)
-    else:
-        st.info("⬆️ Sube tu archivo `BASE DE DATOS.XLSX` para empezar con el análisis.")
-
-# --- Sección de Evaluación de Desempeño ---
-elif st.session_state.page == "Evaluación de Desempeño":
-    st.title("📊 Evaluación de Desempeño")
-    st.markdown("""
-        Utiliza esta sección para evaluar el desempeño de los **proveedores** o **tipos de servicio**
-        basado en criterios de calidad, oportunidad, precio y postventa, además de visualizar métricas de desempeño técnico.
-    """)
-
-    if st.session_state.df is None or st.session_state.df.empty:
-        st.warning("Por favor, carga el archivo `BASE DE DATOS.XLSX` en la sección 'Inicio y Carga de Datos' para acceder a la evaluación.")
-    else:
-        # Selección del modo de evaluación
+        # Seleccionar modo de evaluación (Por Tipo de Servicio o Por Proveedor)
         st.session_state.eval_mode = st.radio(
-            "Selecciona el modo de evaluación:",
+            "Evaluar desempeño por:",
             ("Por Tipo de Servicio", "Por Proveedor"),
-            index=0 if st.session_state.eval_mode == "Por Tipo de Servicio" else 1,
             key="eval_mode_radio"
         )
 
-        if st.session_state.eval_mode == "Por Tipo de Servicio":
-            # Usar el nombre de columna normalizado 'tipo_de_servicio'
-            if 'tipo_de_servicio' in st.session_state.df.columns and not st.session_state.df['tipo_de_servicio'].isnull().all():
-                eval_targets = sorted(st.session_state.df['tipo_de_servicio'].dropna().unique().tolist())
-                target_column_name_internal = 'tipo_de_servicio'
-                column_for_matrix = 'proveedor' # Columnas de la matriz serán los proveedores
-                column_for_matrix_label = "Proveedores Asociados"
-            else:
-                eval_targets = []
-                st.warning("No hay 'Tipo de Servicio' válidos para evaluar. Asegúrate de que la columna exista y no esté vacía.")
-        else: # Por Proveedor
-            # Usar el nombre de columna normalizado 'proveedor'
-            if 'proveedor' in st.session_state.df.columns and not st.session_state.df['proveedor'].isnull().all():
-                eval_targets = sorted(st.session_state.df['proveedor'].dropna().unique().tolist())
-                target_column_name_internal = 'proveedor'
-                column_for_matrix = 'tipo_de_servicio' # Columnas de la matriz serán los tipos de servicio
-                column_for_matrix_label = "Tipos de Servicio Asociados"
-            else:
-                eval_targets = []
-                st.warning("No hay 'Proveedor' válidos para evaluar. Asegúrate de que la columna exista y no esté vacía.")
+        group_col_for_eval = "tipo_de_servicio" if st.session_state.eval_mode == "Por Tipo de Servicio" else "proveedor"
 
-        if not eval_targets:
-            st.info("No hay objetivos de evaluación disponibles. Sube un archivo con datos válidos.")
-        else:
-            # Selección del objetivo de evaluación
-            selected_target_index = 0
-            if st.session_state.selected_eval_target in eval_targets:
-                selected_target_index = eval_targets.index(st.session_state.selected_eval_target)
+        # Asegurarse de que la columna de agrupación exista para la evaluación
+        if group_col_for_eval not in st.session_state.df.columns:
+            st.error(f"La columna '{group_col_for_eval}' no se encontró en los datos para la evaluación. Por favor, verifica tus datos.")
+            return
 
-            st.session_state.selected_eval_target = st.selectbox(
-                f"Selecciona el {st.session_state.eval_mode.split(' ')[1].lower()} a evaluar:",
-                eval_targets,
-                index=selected_target_index,
-                key="selected_eval_target_box"
-            )
+        unique_targets = st.session_state.df[group_col_for_eval].dropna().unique().tolist()
+        if not unique_targets:
+            st.info(f"No se encontraron valores únicos en la columna '{group_col_for_eval}' para evaluar.")
+            return
 
-            st.markdown(f"### Evaluación para: **{st.session_state.selected_eval_target}**")
+        # Establecer un valor inicial predeterminado para selected_eval_target si no se ha establecido o ya no es válido
+        if st.session_state.selected_eval_target not in unique_targets:
+            st.session_state.selected_eval_target = unique_targets[0] if unique_targets else None
 
-            # Display manual evaluation questions for the selected target
-            st.subheader("Criterios de Evaluación Manual:")
-            for category, questions in rangos_detallados.items():
+        selected_target = st.selectbox(
+            f"Selecciona {st.session_state.eval_mode.lower().replace('por ', '')} a evaluar:",
+            unique_targets,
+            index=unique_targets.index(st.session_state.selected_eval_target),
+            key="selected_eval_target_select"
+        )
+        st.session_state.selected_eval_target = selected_target
+
+        # Filtrar el DataFrame para el objetivo seleccionado
+        df_target_subset = st.session_state.df[st.session_state.df[group_col_for_eval] == selected_target].copy()
+
+        # Pre-calcular métricas técnicas si no se han calculado o si el objetivo/modo de evaluación ha cambiado
+        metrics_key = (st.session_state.eval_mode, st.session_state.selected_eval_target)
+        if st.session_state.pre_calculated_metrics is None or metrics_key not in st.session_state.pre_calculated_metrics:
+            with st.spinner("Calculando métricas de desempeño técnico..."):
+                disponibilidad = calcular_disponibilidad(df_target_subset, horarios_dict, group_by_col_for_eval)
+                mttr = calcular_mttr(df_target_subset, group_by_col_for_eval)
+                mtbf = calcular_mtbf(df_target_subset, horarios_dict, group_by_col_for_eval)
+                rendimiento = clasificar_rendimiento(disponibilidad)
+
+                # Obtener la métrica específica para el objetivo seleccionado
+                target_disponibilidad = disponibilidad.get(selected_target, 0.0)
+                target_mttr = mttr.get(selected_target, 0.0)
+                target_mtbf = mtbf.get(selected_target, 0.0)
+                target_rendimiento = rendimiento.get(selected_target, 'Bajo') # Default to 'Bajo' if not found
+
+                if st.session_state.pre_calculated_metrics is None:
+                    st.session_state.pre_calculated_metrics = {}
+                st.session_state.pre_calculated_metrics[metrics_key] = {
+                    "Disponibilidad promedio (%)": target_disponibilidad,
+                    "MTTR promedio (hrs)": target_mttr,
+                    "MTBF promedio (hrs)": target_mtbf,
+                    "Rendimiento promedio equipos": target_rendimiento
+                }
+        
+        # Mostrar métricas pre-calculadas para "Desempeño técnico"
+        if metrics_key in st.session_state.pre_calculated_metrics:
+            tech_metrics = st.session_state.pre_calculated_metrics[metrics_key]
+            st.subheader(f"Métricas de Desempeño Técnico para {selected_target}:")
+            for metric, value in tech_metrics.items():
+                if isinstance(value, (int, float)):
+                    st.metric(label=metric, value=f"{value:.2f}")
+                else:
+                    st.metric(label=metric, value=str(value))
+
+        # Sección para la evaluación manual
+        st.subheader(f"Evaluación Manual para {selected_target}")
+        st.write("Califica cada criterio en una escala de -1 a 2:")
+
+        for category, questions in rangos_detallados.items():
+            st.markdown(f"#### {category}")
+            for question, options in questions.items():
                 if category == "Desempeño técnico":
-                    continue
-                st.markdown(f"#### {category}")
-                for question, options in questions.items():
-                    unique_key = f"{category}_{question}_{st.session_state.selected_eval_target}"
+                    # Para el desempeño técnico, usar las métricas pre-calculadas
+                    metric_value = st.session_state.pre_calculated_metrics.get(metrics_key, {}).get(question)
+                    if metric_value is not None:
+                        # Determinar la puntuación basándose en el valor de la métrica y rangos_detallados
+                        score = 0 # Valor por defecto
+                        if question == "Disponibilidad promedio (%)":
+                            if metric_value >= 98: score = 2
+                            elif 75 <= metric_value < 98: score = 1
+                            else: score = 0
+                        elif question == "MTTR promedio (hrs)":
+                            if metric_value <= 5: score = 2
+                            elif 5 < metric_value <= 20: score = 1
+                            else: score = 0
+                        elif question == "MTBF promedio (hrs)":
+                            if metric_value > 1000: score = 2
+                            elif 100 <= metric_value <= 1000: score = 1
+                            else: score = 0
+                        elif question == "Rendimiento promedio equipos":
+                            if metric_value == 'Alto': score = 2
+                            elif metric_value == 'Medio': score = 1
+                            else: score = 0
 
-                    sorted_options = sorted(options.items(), key=lambda item: item[0], reverse=True)
-                    option_labels = [f"{v} ({k})" for k, v in sorted_options]
-                    option_values = [k for k, v in sorted_options]
-
-                    current_value = st.session_state.evaluations.get((category, question, st.session_state.selected_eval_target), None)
-
-                    try:
-                        default_index = option_values.index(current_value) if current_value is not None else 0
-                    except ValueError:
-                        default_index = 0
-
-                    selected_option = st.radio(
+                        st.info(f"**{question}**: {metric_value:.2f}" if isinstance(metric_value, (int, float)) else f"**{question}**: {metric_value}")
+                        st.write(f"Puntuación automática: **{score}**")
+                        st.session_state.evaluations[(category, question, selected_target)] = score
+                    else:
+                        st.warning(f"Métrica '{question}' no disponible para cálculo automático.")
+                        # Todavía proporcionar un slider manual si el cálculo automático falla/no es aplicable
+                        default_value = st.session_state.evaluations.get((category, question, selected_target), 0)
+                        selected_option = st.slider(
+                            question,
+                            min_value=-1,
+                            max_value=2,
+                            value=default_value,
+                            step=1,
+                            format="%d",
+                            key=f"eval_{category}_{question}_{selected_target}"
+                        )
+                        st.write(f"Descripción: {options.get(selected_option, 'Sin descripción')}")
+                        st.session_state.evaluations[(category, question, selected_target)] = selected_option
+                else:
+                    default_value = st.session_state.evaluations.get((category, question, selected_target), 0)
+                    selected_option = st.slider(
                         question,
-                        options=option_values,
-                        format_func=lambda x: options[x],
-                        index=default_index,
-                        key=unique_key
+                        min_value=-1,
+                        max_value=2,
+                        value=default_value,
+                        step=1,
+                        format="%d",
+                        key=f"eval_{category}_{question}_{selected_target}"
                     )
-                    st.session_state.evaluations[(category, question, st.session_state.selected_eval_target)] = selected_option
+                    st.write(f"Descripción: {options.get(selected_option, 'Sin descripción')}")
+                    st.session_state.evaluations[(category, question, selected_target)] = selected_option
 
-            st.markdown("---")
+        # Mostrar resumen de evaluaciones
+        st.subheader("Resumen de Puntuaciones")
+        if st.session_state.evaluations:
+            eval_data = []
+            for (cat, q, target), score in st.session_state.evaluations.items():
+                if target == selected_target: # Solo mostrar para el objetivo actual
+                    eval_data.append({"Categoría": cat, "Pregunta": q, "Puntuación": score})
+            if eval_data:
+                eval_df = pd.DataFrame(eval_data)
+                st.dataframe(eval_df)
 
-            # --- Display Consolidated Evaluation Matrix ---
-            st.subheader("Matriz Consolidada de Evaluaciones")
+                # Calcular puntuación total y promedio
+                total_score = eval_df['Puntuación'].sum()
+                num_questions = len(eval_df)
+                average_score = total_score / num_questions if num_questions > 0 else 0
 
-            # Determinar qué elementos irán en las columnas de la matriz
-            if st.session_state.eval_mode == "Por Tipo de Servicio":
-                # Si evaluamos por Tipo de Servicio, las columnas son los proveedores asociados
-                # Filtra el DF original para el tipo de servicio seleccionado
-                relevant_df = st.session_state.df[st.session_state.df[target_column_name_internal] == st.session_state.selected_eval_target]
-                matrix_columns = sorted(relevant_df[column_for_matrix].dropna().unique().tolist())
-                # Si no hay proveedores asociados, o si la columna de proveedor no existe
-                if not matrix_columns:
-                    matrix_columns = ["Ningún Proveedor Asociado"]
-            else: # Por Proveedor
-                # Si evaluamos por Proveedor, las columnas son los tipos de servicio asociados
-                relevant_df = st.session_state.df[st.session_state.df[target_column_name_internal] == st.session_state.selected_eval_target]
-                matrix_columns = sorted(relevant_df[column_for_matrix].dropna().unique().tolist())
-                # Si no hay tipos de servicio asociados, o si la columna de tipo_de_servicio no existe
-                if not matrix_columns:
-                    matrix_columns = ["Ningún Tipo de Servicio Asociado"]
+                st.markdown(f"**Puntuación Total para {selected_target}:** {total_score}")
+                st.markdown(f"**Puntuación Promedio para {selected_target}:** {average_score:.2f}")
 
-            matrix_data = {}
-            index_names = []
+                # Gráfico de barras de las puntuaciones por categoría
+                category_scores = eval_df.groupby('Categoría')['Puntuación'].mean().sort_values(ascending=False)
+                fig_cat_scores, ax_cat_scores = plt.subplots(figsize=(10, 6))
+                sns.barplot(x=category_scores.index, y=category_scores.values, ax=ax_cat_scores, palette='coolwarm')
+                ax_cat_scores.set_title(f"Puntuación Promedio por Categoría para {selected_target}")
+                ax_cat_scores.set_xlabel("Categoría")
+                ax_cat_scores.set_ylabel("Puntuación Promedio")
+                plt.xticks(rotation=45, ha='right')
+                plt.tight_layout()
+                st.pyplot(fig_cat_scores)
 
-            # Add manual evaluation questions as rows
-            for category, questions in rangos_detallados.items():
-                if category == "Desempeño técnico":
-                    continue
-                for question in questions:
-                    full_question_name = f"**{category}**<br>{question}"
-                    index_names.append(full_question_name)
-                    matrix_data[full_question_name] = {}
-                    for col_target in matrix_columns:
-                        # Si evaluamos por Tipo de Servicio, el "target" es el tipo de servicio seleccionado.
-                        # El score es para el tipo de servicio, no para el proveedor individual.
-                        # Entonces, la evaluación manual es la misma para todas las columnas de proveedor.
-                        if st.session_state.eval_mode == "Por Tipo de Servicio":
-                            score = st.session_state.evaluations.get((category, question, st.session_state.selected_eval_target), "N/A")
-                        else: # Si evaluamos Por Proveedor, el target es el proveedor seleccionado
-                            score = st.session_state.evaluations.get((category, question, st.session_state.selected_eval_target), "N/A")
-                        matrix_data[full_question_name][col_target] = score
+                # Gráfico de barras de todas las preguntas
+                fig_all_scores, ax_all_scores = plt.subplots(figsize=(12, max(8, len(eval_df) * 0.4)))
+                sns.barplot(x='Puntuación', y='Pregunta', data=eval_df, ax=ax_all_scores, palette='viridis')
+                ax_all_scores.set_title(f"Puntuaciones Individuales por Pregunta para {selected_target}")
+                ax_all_scores.set_xlabel("Puntuación")
+                ax_all_scores.set_ylabel("Pregunta")
+                plt.tight_layout()
+                st.pyplot(fig_all_scores)
 
-            # Add technical metrics as rows if applicable
-            tech_category = "Desempeño técnico"
-            for tech_question, ranges in rangos_detallados[tech_category].items():
-                full_question_name = f"**{tech_category}**<br>{tech_question}"
-                index_names.append(full_question_name)
-                matrix_data[full_question_name] = {}
-                for col_target in matrix_columns:
-                    value = "N/A" # Default
-                    if st.session_state.eval_mode == "Por Tipo de Servicio":
-                        # El cálculo técnico es para el TIPO DE SERVICIO general
-                        if 'disponibilidad_servicio' in st.session_state.pre_calculated_metrics:
-                            if tech_question == "Disponibilidad promedio (%)":
-                                value = st.session_state.pre_calculated_metrics['disponibilidad_servicio'].get(st.session_state.selected_eval_target, 0)
-                                value = f"{value:.2f}%"
-                            elif tech_question == "MTTR promedio (hrs)":
-                                value = st.session_state.pre_calculated_metrics['mttr_servicio'].get(st.session_state.selected_eval_target, 0)
-                                value = f"{value:.2f} hrs"
-                            elif tech_question == "MTBF promedio (hrs)":
-                                value = st.session_state.pre_calculated_metrics['mtbf_servicio'].get(st.session_state.selected_eval_target, 0)
-                                value = f"{value:.2f} hrs"
-                            elif tech_question == "Rendimiento promedio equipos":
-                                value = st.session_state.pre_calculated_metrics['rendimiento_servicio'].get(st.session_state.selected_eval_target, 'N/A')
-                    else: # Por Proveedor
-                        # El cálculo técnico es para el PROVEEDOR general
-                        if 'disponibilidad_proveedor' in st.session_state.pre_calculated_metrics:
-                            if tech_question == "Disponibilidad promedio (%)":
-                                value = st.session_state.pre_calculated_metrics['disponibilidad_proveedor'].get(st.session_state.selected_eval_target, 0)
-                                value = f"{value:.2f}%"
-                            elif tech_question == "MTTR promedio (hrs)":
-                                value = st.session_state.pre_calculated_metrics['mttr_proveedor'].get(st.session_state.selected_eval_target, 0)
-                                value = f"{value:.2f} hrs"
-                            elif tech_question == "MTBF promedio (hrs)":
-                                value = st.session_state.pre_calculated_metrics['mtbf_proveedor'].get(st.session_state.selected_eval_target, 0)
-                                value = f"{value:.2f} hrs"
-                            elif tech_question == "Rendimiento promedio equipos":
-                                value = st.session_state.pre_calculated_metrics['rendimiento_proveedor'].get(st.session_state.selected_eval_target, 'N/A')
-                    
-                    matrix_data[full_question_name][col_target] = value
-
-            if matrix_data:
-                consolidated_matrix_df = pd.DataFrame(matrix_data).T
-                
-                # Reordenar las columnas para asegurar que los "targets" aparezcan primero
-                # Esto es crucial para que la matriz se muestre correctamente con las columnas dinámicas
-                consolidated_matrix_df = consolidated_matrix_df[matrix_columns]
-                
-                consolidated_matrix_df.index.name = "Criterio / Pregunta"
-
-                st.markdown(consolidated_matrix_df.to_html(escape=False), unsafe_allow_html=True)
-
-                csv_consolidated = consolidated_matrix_df.to_csv().encode('utf-8')
-                st.download_button(
-                    label="Descargar Matriz de Evaluaciones CSV",
-                    data=csv_consolidated,
-                    file_name="matriz_evaluaciones.csv",
-                    mime="text/csv",
-                    key="download_consolidated_evals_matrix"
-                )
             else:
-                st.info("No hay evaluaciones guardadas aún. Realiza algunas evaluaciones para ver la matriz aquí.")
+                st.info("No hay evaluaciones registradas para el objetivo seleccionado.")
+        else:
+            st.info("Comienza a evaluar para ver el resumen de puntuaciones.")
 
-# --- Sección de Análisis General (antes "Análisis de Costos" y "Análisis de Duración de Parada") ---
-elif st.session_state.page == "Análisis General":
-    st.title("📊 Análisis General de Datos")
-    st.markdown("---")
-
-    if st.session_state.df is None or st.session_state.df.empty:
-        st.warning("Por favor, carga el archivo `BASE DE DATOS.XLSX` en la sección 'Inicio y Carga de Datos' para acceder al análisis.")
-    else:
-        analysis_app = AnalysisApp(st.session_state.df)
-        analysis_app.display_analysis()
+# Run the app
+if __name__ == "__main__":
+    main()
