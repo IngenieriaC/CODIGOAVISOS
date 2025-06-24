@@ -72,7 +72,6 @@ st.markdown("---")
 st.header("Proyecto de **Gerencia de Gestión Administrativa** en Ingeniería Clínica")
 st.markdown("""
     Aquí podrás **analizar y gestionar los datos de avisos** para optimizar los procesos.
-    Por favor, **sube el archivo `DATA2.XLSX`** para comenzar.
 """)
 # Set a nice style for plots
 sns.set_style('whitegrid')
