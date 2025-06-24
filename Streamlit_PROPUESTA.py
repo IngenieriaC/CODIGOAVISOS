@@ -749,30 +749,89 @@ def main():
     st.session_state.page = st.sidebar.radio("Ir a:", page_options, index=page_options.index(st.session_state.page))
 
     if st.session_state.page == 'Inicio y Carga de Datos':
-        st.header("Carga de Datos de Operación y Mantenimiento")
-        st.write("Por favor, sube un archivo Excel con las 5 hojas de datos: IW29, IW39, IH08, IW65, ZPM015.")
+        st.title("¡Hola, usuario Sura! 👋")
+        st.markdown("---")
+        st.header("Proyecto de **Gerencia de Gestión Administrativa** en Ingeniería Clínica")
+        st.markdown("""
+            Aquí podrás **analizar y gestionar los datos de avisos** para optimizar los procesos.
+            Por favor, **sube el archivo `DATA2.XLSX`** para comenzar.
+        """)
 
-        uploaded_file = st.file_uploader("Arrastra y suelta tu archivo Excel aquí", type=["xlsx"], key="file_uploader")
+        uploaded_file = st.file_uploader("Sube tu archivo 'DATA2.XLSX' aquí", type=["xlsx"], key="file_uploader")
 
-        if uploaded_file is not None:
-            # Almacenar el buffer original en session_state para que st.cache_data pueda acceder
-            st.session_state.original_excel_buffer = io.BytesIO(uploaded_file.getvalue())
+        if uploaded_file:
+            file_buffer = io.BytesIO(uploaded_file.getvalue())
 
-            with st.spinner("Cargando y procesando datos..."):
+            with st.spinner('Cargando y procesando datos... Esto puede tomar un momento.'):
                 try:
-                    st.session_state.df = load_and_merge_data(st.session_state.original_excel_buffer)
-                    st.success("Datos cargados y procesados exitosamente.")
-                    st.write("Vista previa de los datos combinados:")
-                    st.dataframe(st.session_state.df.head())
+                    # Cargar y fusionar datos usando la función mejorada
+                    df = load_and_merge_data(file_buffer)
+                    
+                    # --- Procesamiento adicional: Eliminar registros con "PTBO" ---
+                    initial_rows = len(df)
+                    if 'status_del_sistema' in df.columns:
+                        df = df[~df["status_del_sistema"].str.contains("PTBO", case=False, na=False)]
+                        st.info(f"Se eliminaron {initial_rows - len(df)} registros con 'PTBO' en 'status_del_sistema'.")
+                    else:
+                        st.warning("La columna 'status_del_sistema' no se encontró para filtrar 'PTBO'.")
 
+                    # --- Procesamiento adicional: Dejar solo una fila con coste por cada aviso ---
+                    # Asegurarse que las columnas existan y manejar el caso de grupos vacíos
+                    if 'aviso' in df.columns and 'costes_tot_reales' in df.columns:
+                        df['costes_tot_reales'] = df.groupby('aviso')['costes_tot_reales'].transform(
+                            lambda x: [x.iloc[0]] + [0]*(len(x)-1) if len(x) > 0 else []
+                        )
+                    else:
+                        st.warning("Las columnas 'aviso' o 'costes_tot_reales' no se encontraron para el procesamiento de costes.")
+                    
+                    st.session_state.df = df # Asignar el DataFrame procesado a session_state
+
+                    st.success("✅ Datos cargados y procesados exitosamente.")
+                    st.write(f"**Filas finales:** {len(st.session_state.df)} – **Columnas:** {len(st.session_state.df.columns)}")
+
+                    # --- Visualización y Descarga ---
+                    st.markdown("---")
+                    st.subheader("Vista previa de los datos procesados:")
+                    st.dataframe(st.session_state.df.head(10)) # Mostrar más filas para una mejor vista previa
+
+                    st.markdown("---")
+                    st.subheader("Descarga de Datos Procesados")
+
+                    # Preparar CSV para descarga
+                    csv_output = st.session_state.df.to_csv(index=False).encode('utf-8')
+                    st.download_button(
+                        label="Descargar como CSV",
+                        data=csv_output,
+                        file_name="avisos_filtrados.csv",
+                        mime="text/csv",
+                        help="Descarga el archivo en formato CSV."
+                    )
+
+                    # Preparar Excel para descarga
+                    excel_buffer = io.BytesIO()
+                    st.session_state.df.to_excel(excel_buffer, index=False, engine='openpyxl')
+                    excel_buffer.seek(0) # Rebobinar el buffer antes de enviarlo
+                    st.download_button(
+                        label="Descargar como Excel",
+                        data=excel_buffer,
+                        file_name="avisos_filtrados.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        help="Descarga el archivo en formato XLSX."
+                    )
+
+                    st.markdown("---")
+                    st.success("¡El procesamiento ha finalizado! Ahora puedes descargar tus datos o seguir explorando.")
+                    
                     # Cambiar automáticamente a la página de Análisis después de una carga exitosa
                     st.session_state.page = 'Análisis de Datos'
-                    st.rerun()
+                    st.rerun() # Trigger a rerun to show the Analysis page
 
                 except Exception as e:
-                    st.error(f"Error al procesar el archivo: {e}")
-                    st.exception(e)
-                    st.session_state.df = None
+                    st.error(f"❌ ¡Ups! Ocurrió un error al procesar el archivo: {e}")
+                    st.warning("Por favor, verifica que el archivo subido sea `DATA2.XLSX` y tenga el formato de hojas esperado.")
+                    st.exception(e) # Muestra el traceback completo para depuración
+        else:
+            st.info("⬆️ Sube tu archivo `DATA2.XLSX` para empezar con el análisis.")
 
     elif st.session_state.page == 'Análisis de Datos':
         st.header("Sección de Análisis de Datos")
