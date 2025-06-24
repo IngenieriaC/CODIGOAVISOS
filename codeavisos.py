@@ -70,12 +70,55 @@ st.markdown(
 )
 
 # Dummy horarios_dict for demonstration purposes if not provided in original code
-# You should replace this with your actual horarios_dict
+# --- HORARIO Mapping ---
 horarios_dict = {
-    'equipo_a': (8, 365),
-    'equipo_b': (16, 300),
-    'equipo_c': (24, 365),
+    "HORARIO_99": (17, 364.91), "HORARIO_98": (14.5, 312.78), "HORARIO_97": (9.818181818, 286.715),
+    "HORARIO_96": (14.5, 312.78), "HORARIO_95": (4, 208.52), "HORARIO_93": (13.45454545, 286.715),
+    "HORARIO_92": (6, 338.845), "HORARIO_91": (9.25, 312.78), "HORARIO_90": (11, 260.65),
+    "HORARIO_9": (16, 312.78), "HORARIO_89": (9.5, 260.65), "HORARIO_88": (14, 260.65),
+    "HORARIO_87": (9.333333333, 312.78), "HORARIO_86": (9.666666667, 312.78), "HORARIO_85": (12, 312.78),
+    "HORARIO_84": (9.5, 312.78), "HORARIO_83": (8.416666667, 312.78), "HORARIO_82": (6, 312.78),
+    "HORARIO_81": (10, 312.78), "HORARIO_80": (8.5, 312.78), "HORARIO_8": (11.6, 260.65),
+    "HORARIO_79": (14, 312.78), "HORARIO_78": (12, 312.78), "HORARIO_77": (3, 312.78),
+    "HORARIO_76": (16, 312.78), "HORARIO_75": (12.16666667, 312.78), "HORARIO_74": (11.33333333, 312.78),
+    "HORARIO_73": (12.66666667, 312.78), "HORARIO_72": (11.83333333, 312.78), "HORARIO_71": (11, 312.78),
+    "HORARIO_70": (15.16666667, 312.78), "HORARIO_7": (15.33333333, 312.78), "HORARIO_69": (9.166666667, 312.78),
+    "HORARIO_68": (4, 312.78), "HORARIO_67": (10, 260.65), "HORARIO_66": (4, 260.65),
+    "HORARIO_65": (16.76923077, 338.845), "HORARIO_64": (17.15384615, 338.845), "HORARIO_63": (22.5, 312.78),
+    "HORARIO_62": (12.25, 312.78), "HORARIO_61": (4, 312.78), "HORARIO_60": (13, 312.78),
+    "HORARIO_6": (18.46153846, 338.845), "HORARIO_59": (12.66666667, 312.78), "HORARIO_58": (12.33333333, 312.78),
+    "HORARIO_57": (13.53846154, 338.845), "HORARIO_56": (12.16666667, 312.78), "HORARIO_55": (6.333333333, 312.78),
+    "HORARIO_54": (7.230769231, 338.845), "HORARIO_53": (5.5, 312.78), "HORARIO_52": (4, 312.78),
+    "HORARIO_51": (14, 338.845), "HORARIO_50": (15, 312.78), "HORARIO_5": (17, 312.78),
+    "HORARIO_49": (15.27272727, 286.715), "HORARIO_48": (14.76923077, 338.845), "HORARIO_47": (14.5, 312.78),
+    "HORARIO_46": (14.33333333, 312.78), "HORARIO_45": (14.16666667, 312.78), "HORARIO_44": (13.83333333, 312.78),
+    "HORARIO_43": (13.5, 312.78), "HORARIO_42": (13.91666667, 312.78), "HORARIO_41": (15, 364.91),
+    "HORARIO_40": (15.81818182, 286.715), "HORARIO_4": (16.16666667, 312.78), "HORARIO_39": (15.27272727, 286.715),
+    "HORARIO_38": (13.84615385, 338.845), "HORARIO_37": (15.09090909, 286.715), "HORARIO_36": (14, 364.91),
+    "HORARIO_35": (14.30769231, 338.845), "HORARIO_34": (14.90909091, 286.715), "HORARIO_33": (13.55, 312.78),
+    "HORARIO_32": (14, 338.845), "HORARIO_31": (14.72727273, 286.715), "HORARIO_30": (13.08333333, 312.78),
+    "HORARIO_3": (16, 312.78), "HORARIO_29": (14, 286.715), "HORARIO_28": (13, 364.91),
+    "HORARIO_27": (14, 286.715), "HORARIO_26": (12.58333333, 312.78), "HORARIO_25": (12, 312.78),
+    "HORARIO_24": (13.27272727, 286.715), "HORARIO_23": (11.83333333, 312.78), "HORARIO_22": (11.91666667, 312.78),
+    "HORARIO_21": (13.09090909, 286.715), "HORARIO_20": (5, 312.78), "HORARIO_2": (23.5, 364.91),
+    "HORARIO_19": (12.18181818, 286.715), "HORARIO_18": (5, 312.78), "HORARIO_17": (9.75, 312.78),
+    "HORARIO_16": (10.36363636, 286.715), "HORARIO_15": (10.18181818, 286.715), "HORARIO_14": (8.5, 312.78),
+    "HORARIO_134": (12, 364.91), "HORARIO_133": (12, 260.65), "HORARIO_132": (13, 312.78),
+    "HORARIO_131": (10, 312.78), "HORARIO_130": (11, 260.65), "HORARIO_13": (9.454545455, 286.715),
+    "HORARIO_129": (9.384615385, 338.845), "HORARIO_128": (12.33333333, 312.78), "HORARIO_127": (9.666666667, 312.78),
+    "HORARIO_126": (10.83333333, 312.78), "HORARIO_125": (4, 312.78), "HORARIO_124": (13.66666667, 312.78),
+    "HORARIO_123": (16.61538462, 338.845), "HORARIO_122": (11, 260.65), "HORARIO_121": (11.66666667, 312.78),
+    "HORARIO_120": (8.25, 312.78), "HORARIO_12": (9.272727273, 286.715), "HORARIO_119": (11.23076923, 338.845),
+    "HORARIO_118": (11.27272727, 286.715), "HORARIO_117": (11.41666667, 312.78), "HORARIO_116": (11, 312.78),
+    "HORARIO_115": (9.25, 312.78), "HORARIO_114": (23.07692308, 338.845), "HORARIO_113": (20, 338.845),
+    "HORARIO_112": (10.61538462, 338.845), "HORARIO_111": (9.454545455, 286.715), "HORARIO_110": (6.833333333, 312.78),
+    "HORARIO_11": (8, 312.78), "HORARIO_109": (12.90909091, 286.715), "HORARIO_108": (10.54545455, 286.715),
+    "HORARIO_107": (12.61538462, 338.845), "HORARIO_106": (14.76923077, 338.845), "HORARIO_105": (12, 156.39),
+    "HORARIO_104": (7.666666667, 312.78), "HORARIO_103": (3, 260.65), "HORARIO_102": (10.16666667, 312.78),
+    "HORARIO_101": (12, 260.65), "HORARIO_100": (11.16666667, 312.78), "HORARIO_10": (6, 312.78),
+    "HORARIO_1": (24, 364.91),
 }
+
 
 # --- Funciones para cargar y preprocesar datos (Consolidada y mejorada) ---
 @st.cache_data
@@ -255,9 +298,7 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
         tmp4_copy = tmp4.copy()
         
         # Agrupar por 'aviso' y sumar los costes, manteniendo el resto de la información
-        # Esto es más robusto que el .transform con list comprehension que tenías
         # Se asume que para un mismo 'aviso', otras columnas como 'descripcion' o 'equipo'
-        # deberían ser consistentes. Si no, necesitarías definir cómo resolver esas inconsistencias.
         # Aquí, simplemente tomamos la primera aparición de otras columnas para el aviso agrupado.
         aggregated_costs = tmp4_copy.groupby('aviso')['costes_tot_reales'].sum().reset_index()
         
@@ -748,115 +789,221 @@ def main():
 
     elif selected_page == "Evaluación de Proveedores":
         st.title("⭐ Evaluación de Proveedores")
-        st.markdown("Por favor, selecciona la puntuación para cada criterio de evaluación. La descripción se actualizará automáticamente.")
+        st.markdown("Utiliza esta sección para evaluar a los proveedores, ya sea de forma general, por tipo de servicio o directamente por proveedor.")
 
-        # Initialize session state for evaluations if not present
-        if 'evaluations_df' not in st.session_state:
-            evaluation_data = []
-            for category, questions in rangos_detallados.items():
-                for question in questions.keys(): # Only need question and category initially
-                    evaluation_data.append({
-                        "Categoría": category,
-                        "Pregunta": question,
-                        "Puntuación": None, # Placeholder for user's numerical selection
-                        "Descripción de la Opción Seleccionada": "" # Placeholder for dynamic description
-                    })
-            st.session_state.evaluations_df = pd.DataFrame(evaluation_data)
-            st.session_state.rangos_detallados = rangos_detallados # Store raw options for lookup
+        if 'df_consolidado' not in st.session_state or st.session_state['df_consolidado'].empty:
+            st.warning("Por favor, carga los datos primero en la sección 'Carga de Datos' para poder realizar la evaluación de proveedores.")
+            return
 
-        # Display the evaluation table using st.data_editor
-        st.subheader("Criterios de Evaluación")
-        
-        # Prepare the DataFrame for display with dropdowns for 'Puntuación'
-        # The 'Puntuación' column will be editable with selectbox, 'Descripción' will be updated
-        edited_df = st.data_editor(
-            st.session_state.evaluations_df,
-            column_config={
-                "Puntuación": st.column_config.SelectboxColumn(
-                    "Puntuación",
-                    help="Elige la puntuación (-1, 0, 1, 2) para esta pregunta.",
-                    options=[-1, 0, 1, 2], # Fixed options for the score
-                    required=True,
-                ),
-                "Descripción de la Opción Seleccionada": st.column_config.TextColumn(
-                    "Descripción de la Opción Seleccionada",
-                    help="Descripción de la puntuación elegida.",
-                    disabled=True # This column will be updated automatically
-                ),
-                "Categoría": st.column_config.TextColumn("Categoría", disabled=True),
-                "Pregunta": st.column_config.TextColumn("Pregunta", disabled=True)
-            },
-            hide_index=True,
-            num_rows="fixed", # Fixed number of rows as they come from pre-defined questions
-            use_container_width=True,
-            key="eval_table"
+        df_consolidado = st.session_state['df_consolidado']
+
+        # Evaluation type selection
+        evaluation_basis = st.radio(
+            "¿Cómo deseas evaluar?",
+            ["General (todos los proveedores)", "Por Tipo de Servicio", "Por Proveedor Específico"],
+            key="eval_basis_select"
         )
 
-        # Process the edited DataFrame to update descriptions and calculate scores
-        # We need to explicitly iterate and update the descriptions based on selected scores
-        
-        # Create a temporary DataFrame to hold the updated descriptions
-        temp_df_for_updates = edited_df.copy()
+        selected_providers = []
+        df_filtered_for_eval = pd.DataFrame()
 
-        for index, row in temp_df_for_updates.iterrows():
-            category = row['Categoría']
-            question = row['Pregunta']
-            selected_score = row['Puntuación']
-
-            # Find the corresponding description from rangos_detallados
-            description_found = ""
-            if selected_score is not None and category in st.session_state.rangos_detallados and question in st.session_state.rangos_detallados[category]:
-                options = st.session_state.rangos_detallados[category][question]
-                if selected_score in options:
-                    description_found = options[selected_score]
-            
-            temp_df_for_updates.loc[index, 'Descripción de la Opción Seleccionada'] = description_found
-
-        # Update the session state DataFrame with the new descriptions
-        st.session_state.evaluations_df = temp_df_for_updates
-
-
-        if st.button("Calcular Evaluación"):
-            # Check if all questions have been answered
-            if st.session_state.evaluations_df['Puntuación'].isnull().any():
-                st.warning("Por favor, asegúrate de responder todas las preguntas antes de calcular la evaluación.")
+        if evaluation_basis == "General (todos los proveedores)":
+            if 'proveedor' in df_consolidado.columns and not df_consolidado['proveedor'].isnull().all():
+                selected_providers = df_consolidado['proveedor'].unique().tolist()
+                df_filtered_for_eval = df_consolidado
             else:
-                total_score = st.session_state.evaluations_df['Puntuación'].sum()
-                num_questions = len(st.session_state.evaluations_df)
-                
-                # Calculate the maximum possible score (assuming 2 points is max per question)
-                max_possible_per_question_score = 2
-                theoretical_max_score = num_questions * max_possible_per_question_score
-                
-                if theoretical_max_score > 0:
-                    percentage_score = (total_score / theoretical_max_score) * 100
+                st.warning("No se encontraron datos de proveedores en el archivo cargado para una evaluación general.")
+
+        elif evaluation_basis == "Por Tipo de Servicio":
+            if 'tipo_de_servicio' in df_consolidado.columns and not df_consolidado['tipo_de_servicio'].isnull().all():
+                service_types = df_consolidado['tipo_de_servicio'].unique().tolist()
+                if service_types:
+                    selected_service_type = st.selectbox(
+                        "Selecciona un Tipo de Servicio:",
+                        [''] + sorted(service_types), # Add empty string for initial selection
+                        key="service_type_select"
+                    )
+                    if selected_service_type:
+                        df_filtered_for_eval = df_consolidado[df_consolidado['tipo_de_servicio'] == selected_service_type]
+                        if 'proveedor' in df_filtered_for_eval.columns and not df_filtered_for_eval['proveedor'].isnull().all():
+                            selected_providers = df_filtered_for_eval['proveedor'].unique().tolist()
+                        else:
+                            st.info(f"No se encontraron proveedores para el Tipo de Servicio '{selected_service_type}'.")
+                    else:
+                        st.info("Por favor, selecciona un Tipo de Servicio para continuar.")
                 else:
-                    percentage_score = 0 # Avoid division by zero if there are no questions
-                
-                st.success(f"Evaluación Completada:")
-                st.write(f"**Puntuación Total:** {total_score} puntos")
-                st.write(f"**Porcentaje de Cumplimiento (basado en máximo de 2 puntos por pregunta):** {percentage_score:.2f}%")
+                    st.warning("No se encontraron tipos de servicio en los datos cargados.")
+            else:
+                st.warning("La columna 'tipo_de_servicio' no se encontró o está vacía en los datos cargados.")
 
-                # Optional: Display the scores per category
-                st.markdown("### Puntuación por Categoría")
-                category_scores = st.session_state.evaluations_df.groupby('Categoría')['Puntuación'].sum().reset_index()
-                category_scores.rename(columns={'Puntuación': 'Puntuación Obtenida'}, inplace=True)
-                
-                # Also calculate max possible score per category
-                max_category_scores_data = []
-                for category, questions in rangos_detallados.items():
-                    max_cat_score = len(questions) * max_possible_per_question_score
-                    max_category_scores_data.append({"Categoría": category, "Puntuación Máxima Posible": max_cat_score})
-                max_category_scores_df = pd.DataFrame(max_category_scores_data)
+        elif evaluation_basis == "Por Proveedor Específico":
+            if 'proveedor' in df_consolidado.columns and not df_consolidado['proveedor'].isnull().all():
+                all_providers = df_consolidado['proveedor'].unique().tolist()
+                if all_providers:
+                    selected_individual_provider = st.selectbox(
+                        "Selecciona un Proveedor:",
+                        [''] + sorted(all_providers), # Add empty string for initial selection
+                        key="individual_provider_select"
+                    )
+                    if selected_individual_provider:
+                        selected_providers = [selected_individual_provider]
+                        df_filtered_for_eval = df_consolidado[df_consolidado['proveedor'] == selected_individual_provider]
+                    else:
+                        st.info("Por favor, selecciona un Proveedor para continuar.")
+                else:
+                    st.warning("No se encontraron proveedores en los datos cargados.")
+            else:
+                st.warning("La columna 'proveedor' no se encontró o está vacía en los datos cargados.")
 
-                # Merge to get percentages
-                category_summary_df = pd.merge(category_scores, max_category_scores_df, on="Categoría", how="left")
-                category_summary_df['Porcentaje de Cumplimiento'] = category_summary_df.apply(
-                    lambda row: f"{(row['Puntuación Obtenida'] / row['Puntuación Máxima Posible']) * 100:.2f}%" if row['Puntuación Máxima Posible'] > 0 else "0.00%",
-                    axis=1
+        # Filter out 'Desempeño técnico' as it's calculated, not user-scored
+        categories_for_user_scoring = {k: v for k, v in rangos_detallados.items() if k != "Desempeño técnico"}
+
+        if selected_providers:
+            st.markdown(f"### Evaluación para: {', '.join(selected_providers) if len(selected_providers) <= 3 else f'{len(selected_providers)} Proveedores seleccionados'}")
+
+            # Initialize session state for user evaluations if not present or if providers change
+            current_eval_key = f"evals_{'_'.join(sorted(selected_providers))}_{evaluation_basis.replace(' ', '_')}"
+            
+            if current_eval_key not in st.session_state:
+                initial_evaluation_data = []
+                for category, questions in categories_for_user_scoring.items():
+                    for question in questions.keys():
+                        row = {"Categoría": category, "Pregunta": question}
+                        for provider in selected_providers:
+                            row[provider] = None # Initialize score for each provider
+                        initial_evaluation_data.append(row)
+                st.session_state[current_eval_key] = pd.DataFrame(initial_evaluation_data)
+
+            st.subheader("Criterios de Evaluación (Ingreso Manual)")
+
+            # Prepare column configurations for the data_editor
+            column_configs = {
+                "Categoría": st.column_config.TextColumn("Categoría", disabled=True),
+                "Pregunta": st.column_config.TextColumn("Pregunta", disabled=True)
+            }
+            for provider in selected_providers:
+                column_configs[provider] = st.column_config.SelectboxColumn(
+                    provider,
+                    help=f"Puntuación para {provider}",
+                    options=[-1, 0, 1, 2],
+                    required=True,
                 )
-                
-                st.dataframe(category_summary_df, hide_index=True)
+
+            edited_eval_df = st.data_editor(
+                st.session_state[current_eval_key],
+                column_config=column_configs,
+                hide_index=True,
+                num_rows="fixed",
+                use_container_width=True,
+                key=f"eval_table_{current_eval_key}"
+            )
+            st.session_state[current_eval_key] = edited_eval_df # Update session state immediately
+
+            st.markdown("---")
+            st.subheader("Desempeño Técnico (Calculado Automáticamente)")
+            
+            # Calculate technical performance for each selected provider
+            tech_performance_data = []
+            if not df_filtered_for_eval.empty:
+                for provider in selected_providers:
+                    df_provider = df_filtered_for_eval[df_filtered_for_eval['proveedor'] == provider].copy()
+                    
+                    disponibilidad_prov = calcular_disponibilidad(df_provider, horarios_dict)
+                    mttr_prov = calcular_mttr(df_provider)
+                    mtbf_prov = calcular_mtbf(df_provider, horarios_dict)
+                    rendimiento_prov = clasificar_rendimiento(disponibilidad_prov)
+
+                    # Extract the general value if grouped by General, otherwise by provider name
+                    disp_val = disponibilidad_prov.iloc[0] if not disponibilidad_prov.empty else 0
+                    mttr_val = mttr_prov.iloc[0] if not mttr_prov.empty else 0
+                    mtbf_val = mtbf_prov.iloc[0] if not mtbf_prov.empty else 0
+                    rend_val = rendimiento_prov.iloc[0] if not rendimiento_prov.empty else 'N/A'
+
+                    tech_performance_data.append({
+                        "Proveedor": provider,
+                        "Disponibilidad promedio (%)": f"{disp_val:.2f}",
+                        "MTTR promedio (hrs)": f"{mttr_val:.2f}",
+                        "MTBF promedio (hrs)": f"{mtbf_val:.2f}",
+                        "Rendimiento promedio equipos": rend_val
+                    })
+            
+            if tech_performance_data:
+                tech_df = pd.DataFrame(tech_performance_data)
+                st.dataframe(tech_df, hide_index=True)
+            else:
+                st.info("No hay datos suficientes para calcular el desempeño técnico de los proveedores seleccionados.")
+
+
+            if st.button("Calcular Evaluación Final"):
+                # Check if all user-scored questions have been answered for all selected providers
+                all_answered = True
+                for provider in selected_providers:
+                    if edited_eval_df[provider].isnull().any():
+                        all_answered = False
+                        break
+
+                if not all_answered:
+                    st.warning("Por favor, asegúrate de responder todas las preguntas para todos los proveedores seleccionados antes de calcular la evaluación final.")
+                else:
+                    st.success("Evaluación Final de Proveedores:")
+                    
+                    final_scores = {}
+                    max_possible_per_question_score = 2
+
+                    for provider in selected_providers:
+                        provider_scores = edited_eval_df[provider]
+                        total_score_manual = provider_scores.sum()
+                        num_manual_questions = len(edited_eval_df)
+                        theoretical_max_manual_score = num_manual_questions * max_possible_per_question_score
+                        
+                        percentage_score_manual = 0
+                        if theoretical_max_manual_score > 0:
+                            percentage_score_manual = (total_score_manual / theoretical_max_manual_score) * 100
+
+                        final_scores[provider] = {
+                            "Puntuación Total (Manual)": total_score_manual,
+                            "Porcentaje de Cumplimiento (Manual)": f"{percentage_score_manual:.2f}%"
+                        }
+                        
+                        # Add technical performance scores if available
+                        if not tech_df.empty:
+                            tech_row = tech_df[tech_df['Proveedor'] == provider].iloc[0]
+                            final_scores[provider]["Disponibilidad promedio (%)"] = tech_row["Disponibilidad promedio (%)"]
+                            final_scores[provider]["MTTR promedio (hrs)"] = tech_row["MTTR promedio (hrs)"]
+                            final_scores[provider]["MTBF promedio (hrs)"] = tech_row["MTBF promedio (hrs)"]
+                            final_scores[provider]["Rendimiento promedio equipos"] = tech_row["Rendimiento promedio equipos"]
+
+                    final_scores_df = pd.DataFrame.from_dict(final_scores, orient='index')
+                    final_scores_df.index.name = "Proveedor"
+                    st.dataframe(final_scores_df)
+
+                    st.markdown("### Puntuación por Categoría (Manual)")
+                    # Calculate scores per category for each provider
+                    category_summary_per_provider = {}
+                    for provider in selected_providers:
+                        category_summary_per_provider[provider] = {}
+                        for category in categories_for_user_scoring.keys():
+                            category_questions = [q for q in categories_for_user_scoring[category].keys()]
+                            
+                            # Filter the edited_eval_df for the current category's questions
+                            filtered_for_category = edited_eval_df[edited_eval_df['Pregunta'].isin(category_questions)]
+                            
+                            score_obtained = filtered_for_category[provider].sum()
+                            
+                            max_cat_score = len(category_questions) * max_possible_per_question_score
+                            
+                            percentage_cat = 0
+                            if max_cat_score > 0:
+                                percentage_cat = (score_obtained / max_cat_score) * 100
+                            
+                            category_summary_per_provider[provider][category] = f"{percentage_cat:.2f}% ({score_obtained}/{max_cat_score})"
+                    
+                    category_summary_df_display = pd.DataFrame.from_dict(category_summary_per_provider, orient='index')
+                    category_summary_df_display.index.name = "Proveedor"
+                    st.dataframe(category_summary_df_display)
+
+        else:
+            st.info("Por favor, selecciona una opción de evaluación y asegúrate de que haya proveedores disponibles para esa selección.")
 
 
     elif selected_page == "Análisis General":
