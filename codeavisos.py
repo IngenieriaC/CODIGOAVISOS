@@ -3,7 +3,6 @@
 
 """
 
-
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -83,7 +82,8 @@ horarios_dict = {
 def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
     """
     Carga y fusiona los datos de las diferentes hojas de un archivo Excel,
-    y normaliza los nombres de las columnas.
+    y normaliza los nombres de las columnas. Adapta la lógica del cuaderno original
+    a un entorno de Streamlit con carga de archivos.
 
     Args:
         uploaded_file_buffer (io.BytesIO): Buffer del archivo Excel subido por el usuario.
@@ -91,150 +91,185 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
     Returns:
         pd.DataFrame: El DataFrame combinado y limpio con columnas normalizadas.
     """
-    # Cargar hojas directamente desde el buffer
-    # Usamos try-except para manejar casos donde una hoja no exista
-    sheets_data = {}
-    sheet_names = ["IW29", "IW39", "IH08", "IW65", "ZPM015"] # Assuming these are the sheet names
+    sheet_names_map = {
+        0: "IW29",
+        1: "IW39",
+        2: "IH08",
+        3: "IW65",
+        4: "ZPM015"
+    }
 
-    for i, sheet_name in enumerate(sheet_names):
+    sheets_data = {}
+    for idx, sheet_name_key in sheet_names_map.items():
         try:
             # Rebobinar el buffer antes de cada lectura de hoja
             uploaded_file_buffer.seek(0)
-            df_temp = pd.read_excel(uploaded_file_buffer, sheet_name=i)
-            # Normalize column names immediately after loading
+            df_temp = pd.read_excel(uploaded_file_buffer, sheet_name=idx)
+            # Normalizar nombres de columnas inmediatamente después de cargar
             df_temp.columns = [
-                col.lower().replace(' ', '_').replace('.', '').replace('(', '').replace(')', '').replace('ó', 'o').replace('á', 'a').replace('é', 'e').replace('í', 'i').replace('ú', 'u')
+                col.strip().lower().replace(' ', '_').replace('.', '').replace('(', '').replace(')', '').replace('ó', 'o').replace('á', 'a').replace('é', 'e').replace('í', 'i').replace('ú', 'u')
                 for col in df_temp.columns
             ]
-            sheets_data[sheet_name.lower()] = df_temp
+            sheets_data[sheet_name_key.lower()] = df_temp
         except Exception as e:
-            st.warning(f"No se pudo cargar la hoja {sheet_name} (índice {i}): {e}. Esta hoja será ignorada.")
-            sheets_data[sheet_name.lower()] = pd.DataFrame() # Provide an empty DataFrame
+            st.warning(f"No se pudo cargar la hoja {sheet_name_key} (índice {idx}): {e}. Esta hoja será ignorada.")
+            sheets_data[sheet_name_key.lower()] = pd.DataFrame() # Proporcionar un DataFrame vacío
 
+    # Asignar DataFrames normalizados
     iw29 = sheets_data.get('iw29', pd.DataFrame())
     iw39 = sheets_data.get('iw39', pd.DataFrame())
     ih08 = sheets_data.get('ih08', pd.DataFrame())
     iw65 = sheets_data.get('iw65', pd.DataFrame())
     zpm015 = sheets_data.get('zpm015', pd.DataFrame())
 
-    # Ensure essential columns exist, add them if missing
+    # --- Pre-verificación y manejo de columnas esenciales antes de merges ---
+    # Esto asegura que las columnas clave para los merges existan o se creen con valores predeterminados
     for df_name, df_obj in {"iw29": iw29, "iw39": iw39, "ih08": ih08, "iw65": iw65, "zpm015": zpm015}.items():
-        if df_obj.empty: # Skip if DataFrame is empty
-            continue
+        if df_obj.empty: continue
         if "aviso" not in df_obj.columns:
-            st.warning(f"La columna 'aviso' no se encontró en la hoja {df_name.upper()}. Algunos merges podrían fallar.")
-            df_obj['aviso'] = np.arange(len(df_obj)) # Add dummy avisos
+            st.warning(f"La columna 'aviso' no se encontró en la hoja {df_name.upper()}. Se generarán avisos dummy.")
+            df_obj['aviso'] = np.arange(len(df_obj))
         if "equipo" not in df_obj.columns:
-            st.warning(f"La columna 'equipo' no se encontró en la hoja {df_name.upper()}. Algunos merges podrían fallar.")
-            df_obj['equipo'] = 'sin_equipo_' + df_obj['aviso'].astype(str) # Dummy equipo
+            st.warning(f"La columna 'equipo' no se encontró en la hoja {df_name.upper()}. Se generarán equipos dummy.")
+            df_obj['equipo'] = 'sin_equipo_' + df_obj['aviso'].astype(str)
 
-    # Guardar "equipo" original desde IW29 para evitar pérdida en el primer merge si 'equipo' está en ambos
+    # Guardar "equipo" original y otras columnas clave de IW29 para evitar pérdida en el primer merge
     equipo_original = pd.DataFrame()
-    if not iw29.empty and "aviso" in iw29.columns and "equipo" in iw29.columns and "duracion_de_parada" in iw29.columns and "descripcion" in iw29.columns:
+    if not iw29.empty and all(col in iw29.columns for col in ["aviso", "equipo", "duracion_de_parada", "descripcion"]):
         equipo_original = iw29[["aviso", "equipo", "duracion_de_parada", "descripcion"]].copy()
     else:
         st.warning("IW29 no contiene todas las columnas esperadas (aviso, equipo, duracion_de_parada, descripcion).")
 
-    # Extraer solo columnas necesarias de iw39 para el merge (incluyendo 'total_general_(real)')
+    # Extraer solo columnas necesarias de iw39 para el merge (ahora con nombres normalizados)
     iw39_subset = pd.DataFrame()
     if not iw39.empty and "aviso" in iw39.columns and "total_general_real" in iw39.columns:
         iw39_subset = iw39[["aviso", "total_general_real"]]
     else:
         st.warning("IW39 no contiene 'aviso' o 'total_general_real'. Los costos reales podrían no unirse.")
 
-    # Unir por 'aviso'
+    # --- Realizar merges siguiendo la lógica del código original ---
     tmp1 = iw29.copy()
     if not iw39_subset.empty:
         tmp1 = pd.merge(tmp1, iw39_subset, on="aviso", how="left")
     else:
-        tmp1['total_general_real'] = np.nan # Add the column if it wasn't merged
+        tmp1['total_general_real'] = np.nan # Añadir la columna si no se unió
 
+    tmp2 = tmp1.copy()
     if not iw65.empty and "aviso" in iw65.columns:
         tmp2 = pd.merge(tmp1, iw65, on="aviso", how="left", suffixes=('_iw29', '_iw65'))
     else:
-        tmp2 = tmp1.copy()
         st.warning("IW65 no contiene 'aviso'. No se unirá.")
 
     # Restaurar el valor original de "equipo" de IW29 después del merge si es necesario
-    # Esto maneja el caso donde 'equipo' podría haber sido sobrescrito si existía en IW65
-    if not equipo_original.empty and "equipo_iw29" in tmp2.columns: # Check for the suffixed column if it exists
-        tmp2.drop(columns=["equipo_iw29", "equipo"], errors='ignore', inplace=True) # Drop both original and suffixed if they exist
-        tmp2 = pd.merge(tmp2, equipo_original, on="aviso", how="left")
-    elif not equipo_original.empty and "equipo" in tmp2.columns: # If no suffix, just replace
-        tmp2.drop(columns=["equipo"], errors='ignore', inplace=True)
-        tmp2 = pd.merge(tmp2, equipo_original, on="aviso", how="left")
-    elif not equipo_original.empty: # If 'equipo' wasn't there at all, add it
+    if not equipo_original.empty:
+        # Primero, eliminar posibles columnas 'equipo' o 'equipo_iw29' que pudieron crearse
+        # o ser sobrescritas por merges anteriores.
+        tmp2.drop(columns=[col for col in ['equipo', 'equipo_iw29'] if col in tmp2.columns], errors='ignore', inplace=True)
+        # Luego, fusionar el equipo original
         tmp2 = pd.merge(tmp2, equipo_original, on="aviso", how="left")
 
-
-    # Unir por 'equipo' con IH08
-    ih08_cols_to_merge = ["equipo", "inicgarantia_prov", "fin_garantia_prov", "texto", "indicador_abc", "denominacion_de_objeto_tecnico"]
-    ih08_cols_to_merge = [col for col in ih08_cols_to_merge if col in ih08.columns] # Filter existing columns
+    # Unir por 'equipo' con IH08 (usando nombres de columnas normalizados)
+    ih08_cols_to_merge_norm = [
+        "equipo", "inicgarantia_prov", "fin_garantia_prov", "texto", "indicador_abc", "denominacion_de_objeto_tecnico"
+    ]
+    ih08_cols_to_merge_norm = [col for col in ih08_cols_to_merge_norm if col in ih08.columns]
 
     tmp3 = tmp2.copy()
-    if not ih08.empty and "equipo" in ih08.columns:
-        tmp3 = pd.merge(tmp2, ih08[ih08_cols_to_merge], on="equipo", how="left", suffixes=('_tmp2', '_ih08'))
+    if not ih08.empty and "equipo" in ih08.columns and ih08_cols_to_merge_norm:
+        tmp3 = pd.merge(tmp2, ih08[ih08_cols_to_merge_norm], on="equipo", how="left", suffixes=('_tmp2', '_ih08'))
     else:
-        st.warning("IH08 no contiene 'equipo'. No se unirá.")
-        # Add these columns with NaNs if not merged to ensure schema consistency
+        st.warning("IH08 no contiene 'equipo' o las columnas esperadas. No se unirá completamente.")
+        # Asegurarse de que las columnas existan con NaN si no se unieron
         for col in ["inicgarantia_prov", "fin_garantia_prov", "texto", "indicador_abc", "denominacion_de_objeto_tecnico"]:
             if col not in tmp3.columns:
                 tmp3[col] = np.nan
 
-    # Unir por 'equipo' con ZPM015
-    zpm015_cols_to_merge = ["equipo", "tipo_de_servicio"]
-    zpm015_cols_to_merge = [col for col in zpm015_cols_to_merge if col in zpm015.columns] # Filter existing columns
+
+    # Unir por 'equipo' con ZPM015 (usando nombres de columnas normalizados)
+    zpm015_cols_to_merge_norm = ["equipo", "tipo_de_servicio"]
+    zpm015_cols_to_merge_norm = [col for col in zpm015_cols_to_merge_norm if col in zpm015.columns]
 
     tmp4 = tmp3.copy()
-    if not zpm015.empty and "equipo" in zpm015.columns:
-        tmp4 = pd.merge(tmp3, zpm015[zpm015_cols_to_merge], on="equipo", how="left", suffixes=('_tmp3', '_zpm015'))
+    if not zpm015.empty and "equipo" in zpm015.columns and zpm015_cols_to_merge_norm:
+        tmp4 = pd.merge(tmp3, zpm015[zpm015_cols_to_merge_norm], on="equipo", how="left", suffixes=('_tmp3', '_zpm015'))
     else:
-        st.warning("ZPM015 no contiene 'equipo'. No se unirá.")
+        st.warning("ZPM015 no contiene 'equipo' o las columnas esperadas. No se unirá completamente.")
         if "tipo_de_servicio" not in tmp4.columns:
             tmp4["tipo_de_servicio"] = np.nan
 
     # Renombrar columnas a los nombres normalizados finales
     final_rename_map = {
-        "texto": "texto_equipo", # From IH08
-        "total_general_real": "costes_tot_reales", # From IW39
-        "denominacion_ejecutante": "proveedor" # Assuming this comes from IW29 or similar
+        "texto": "texto_equipo", # Desde IH08
+        "total_general_real": "costes_tot_reales", # Desde IW39 (nombre normalizado)
+        "denominacion_ejecutante": "proveedor", # Asumiendo que viene de IW29 o similar
+        "tipo_de_servicio": "tipo_de_servicio" # Desde ZPM015 (nombre normalizado, si se llamó diferente antes)
     }
-    # Apply renames safely
+    # Aplicar renombres de forma segura, solo si la columna existe en el DF actual
     for old_name, new_name in final_rename_map.items():
         if old_name in tmp4.columns:
             tmp4.rename(columns={old_name: new_name}, inplace=True)
 
-    # Ensure all expected columns exist even if they couldn't be merged or renamed
+    # Definir las columnas finales esperadas (usando los nombres normalizados)
     expected_final_columns = [
         "aviso", "orden", "fecha_de_aviso", "codigo_postal", "status_del_sistema",
         "descripcion", "ubicacion_tecnica", "indicador", "equipo",
-        "denominacion_de_objeto_tecnico", "proveedor", # 'denominacion_ejecutante' becomes 'proveedor'
+        "denominacion_de_objeto_tecnico", "proveedor",
         "duracion_de_parada", "centro_de_coste", "costes_tot_reales",
         "inicgarantia_prov", "fin_garantia_prov", "texto_equipo",
         "indicador_abc", "texto_codigo_accion", "texto_de_accion",
         "texto_grupo_accion", "tipo_de_servicio"
     ]
 
+    # Asegurarse de que todas las columnas esperadas existan, añadiéndolas con NaN si faltan
     for col in expected_final_columns:
         if col not in tmp4.columns:
-            tmp4[col] = np.nan # Add missing columns with NaN
+            tmp4[col] = np.nan
 
-    # Ensure 'costes_tot_reales' and 'duracion_de_parada' are numeric
+    # Convertir a tipo numérico y manejar NaNs para columnas de cálculos
     tmp4['costes_tot_reales'] = pd.to_numeric(tmp4['costes_tot_reales'], errors='coerce').fillna(0)
     tmp4['duracion_de_parada'] = pd.to_numeric(tmp4['duracion_de_parada'], errors='coerce').fillna(0)
 
-    # Ensure 'proveedor' exists
+    # Asegurarse de que 'proveedor' exista (si no se mapeó desde 'denominacion_ejecutante')
     if 'proveedor' not in tmp4.columns:
         tmp4['proveedor'] = 'Desconocido'
-
-    # Ensure 'aviso' exists and is unique for counting
+    
+    # Asegurarse de que 'aviso' es tipo string para agrupación consistente
     if 'aviso' not in tmp4.columns:
-        tmp4['aviso'] = np.arange(len(tmp4))
-    tmp4['aviso'] = tmp4['aviso'].astype(str) # Ensure aviso is string for consistent grouping
+        tmp4['aviso'] = np.arange(len(tmp4)).astype(str)
+    else:
+        tmp4['aviso'] = tmp4['aviso'].astype(str)
 
-    # Filter only the desired final columns and return
-    # Filter only the columns that actually exist in tmp4 and are in our desired list
+
+    # Filtrar registros cuyo 'status_del_sistema' contenga "PTBO" (ahora normalizado)
+    if 'status_del_sistema' in tmp4.columns:
+        tmp4 = tmp4[~tmp4["status_del_sistema"].str.contains("PTBO", case=False, na=False)]
+
+    # Seleccionar solo las columnas finales presentes en el DataFrame resultante
     final_columns_present = [col for col in expected_final_columns if col in tmp4.columns]
+    
+    # Manejar duplicados de aviso para costes_tot_reales si persisten después del merge
+    # Si un aviso tiene múltiples entradas de coste después de los merges (por ejemplo, si IW29 tuvo duplicados
+    # que se combinaron con IW39), la forma más segura es agrupar y sumar los costes por aviso.
+    if 'aviso' in tmp4.columns and 'costes_tot_reales' in tmp4.columns:
+        # Crear una copia para evitar SettingWithCopyWarning
+        tmp4_copy = tmp4.copy()
+        
+        # Agrupar por 'aviso' y sumar los costes, manteniendo el resto de la información
+        # Esto es más robusto que el .transform con list comprehension que tenías
+        # Se asume que para un mismo 'aviso', otras columnas como 'descripcion' o 'equipo'
+        # deberían ser consistentes. Si no, necesitarías definir cómo resolver esas inconsistencias.
+        # Aquí, simplemente tomamos la primera aparición de otras columnas para el aviso agrupado.
+        aggregated_costs = tmp4_copy.groupby('aviso')['costes_tot_reales'].sum().reset_index()
+        
+        # Merge las columnas agregadas de costes con el DataFrame original (sin duplicados de aviso en costes)
+        # Se hace un drop_duplicates en 'aviso' en tmp4_copy para evitar duplicados en la columna 'aviso'
+        # si se crearon durante los merges.
+        tmp4_copy.drop(columns=['costes_tot_reales'], inplace=True) # Eliminar la columna de costes para evitar duplicados
+        tmp4_copy.drop_duplicates(subset=['aviso'], inplace=True) # Asegurarse de que cada aviso sea único para el merge
+        
+        tmp4 = pd.merge(tmp4_copy, aggregated_costs, on='aviso', how='left')
+
+
     return tmp4[final_columns_present]
 
 
@@ -694,7 +729,10 @@ def main():
         if uploaded_file is not None:
             # Leer el archivo como un buffer para poder pasarlo a la función de carga
             file_buffer = io.BytesIO(uploaded_file.getvalue())
-            df_consolidado = load_and_merge_data(file_buffer)
+            
+            # Mostrar un indicador de carga mientras se procesa el archivo
+            with st.spinner('Cargando y procesando datos... Esto puede tardar unos segundos.'):
+                df_consolidado = load_and_merge_data(file_buffer)
 
             if not df_consolidado.empty:
                 st.success("Archivo cargado y procesado exitosamente. Se encontraron los siguientes datos:")
@@ -710,89 +748,90 @@ def main():
 
     elif selected_page == "Evaluación de Proveedores":
         st.title("⭐ Evaluación de Proveedores")
-        st.markdown("Por favor, selecciona las opciones que mejor describen el desempeño del proveedor para cada criterio.")
+        st.markdown("Por favor, selecciona la puntuación para cada criterio de evaluación. La descripción se actualizará automáticamente.")
 
         # Initialize session state for evaluations if not present
         if 'evaluations_df' not in st.session_state:
-            # Create a DataFrame to hold the evaluation questions and a column for user selection
             evaluation_data = []
             for category, questions in rangos_detallados.items():
-                for question, options in questions.items():
-                    # Get the string descriptions for the options
-                    option_descriptions = [f"{score}: {desc}" for score, desc in options.items()]
+                for question in questions.keys(): # Only need question and category initially
                     evaluation_data.append({
                         "Categoría": category,
                         "Pregunta": question,
-                        "Opciones": option_descriptions, # Store list of descriptions for dropdown
-                        "Puntuación": None # Placeholder for user's numerical selection
+                        "Puntuación": None, # Placeholder for user's numerical selection
+                        "Descripción de la Opción Seleccionada": "" # Placeholder for dynamic description
                     })
             st.session_state.evaluations_df = pd.DataFrame(evaluation_data)
-            # Store the raw options for later retrieval of the score
-            st.session_state.rangos_detallados = rangos_detallados
+            st.session_state.rangos_detallados = rangos_detallados # Store raw options for lookup
 
         # Display the evaluation table using st.data_editor
         st.subheader("Criterios de Evaluación")
         
-        # Prepare the DataFrame for display with dropdowns
-        # The 'Opciones' column will be used to populate the dropdowns in data_editor
+        # Prepare the DataFrame for display with dropdowns for 'Puntuación'
+        # The 'Puntuación' column will be editable with selectbox, 'Descripción' will be updated
         edited_df = st.data_editor(
             st.session_state.evaluations_df,
             column_config={
-                "Opciones": st.column_config.SelectboxColumn(
-                    "Selecciona una Opción",
-                    help="Elige la opción que mejor describe tu evaluación.",
-                    options=[desc for sublist in [q_data["Opciones"] for q_data in st.session_state.evaluations_df.to_dict('records')] for desc in sublist], # Flatten all options for dropdown
+                "Puntuación": st.column_config.SelectboxColumn(
+                    "Puntuación",
+                    help="Elige la puntuación (-1, 0, 1, 2) para esta pregunta.",
+                    options=[-1, 0, 1, 2], # Fixed options for the score
                     required=True,
                 ),
-                "Puntuación": st.column_config.NumberColumn(
-                    "Puntuación Asignada",
-                    help="La puntuación asignada automáticamente según tu selección.",
+                "Descripción de la Opción Seleccionada": st.column_config.TextColumn(
+                    "Descripción de la Opción Seleccionada",
+                    help="Descripción de la puntuación elegida.",
                     disabled=True # This column will be updated automatically
                 ),
                 "Categoría": st.column_config.TextColumn("Categoría", disabled=True),
                 "Pregunta": st.column_config.TextColumn("Pregunta", disabled=True)
             },
             hide_index=True,
-            num_rows="dynamic",
+            num_rows="fixed", # Fixed number of rows as they come from pre-defined questions
             use_container_width=True,
             key="eval_table"
         )
 
-        # Process the edited DataFrame to calculate scores
-        # We need to iterate through the edited_df and update the 'Puntuación' based on the selected 'Opciones'
-        for index, row in edited_df.iterrows():
-            selected_option_desc = row['Opciones']
-            question = row['Pregunta']
+        # Process the edited DataFrame to update descriptions and calculate scores
+        # We need to explicitly iterate and update the descriptions based on selected scores
+        
+        # Create a temporary DataFrame to hold the updated descriptions
+        temp_df_for_updates = edited_df.copy()
+
+        for index, row in temp_df_for_updates.iterrows():
             category = row['Categoría']
+            question = row['Pregunta']
+            selected_score = row['Puntuación']
 
-            # Find the corresponding score from rangos_detallados
-            score_found = None
-            if category in st.session_state.rangos_detallados and question in st.session_state.rangos_detallados[category]:
-                for score, desc in st.session_state.rangos_detallados[category][question].items():
-                    if f"{score}: {desc}" == selected_option_desc:
-                        score_found = score
-                        break
-            edited_df.loc[index, 'Puntuación'] = score_found if score_found is not None else 0 # Default to 0 if no match
+            # Find the corresponding description from rangos_detallados
+            description_found = ""
+            if selected_score is not None and category in st.session_state.rangos_detallados and question in st.session_state.rangos_detallados[category]:
+                options = st.session_state.rangos_detallados[category][question]
+                if selected_score in options:
+                    description_found = options[selected_score]
+            
+            temp_df_for_updates.loc[index, 'Descripción de la Opción Seleccionada'] = description_found
 
-        st.session_state.evaluations_df = edited_df # Update the session state DataFrame
+        # Update the session state DataFrame with the new descriptions
+        st.session_state.evaluations_df = temp_df_for_updates
+
 
         if st.button("Calcular Evaluación"):
-            if not st.session_state.evaluations_df['Puntuación'].isnull().any():
+            # Check if all questions have been answered
+            if st.session_state.evaluations_df['Puntuación'].isnull().any():
+                st.warning("Por favor, asegúrate de responder todas las preguntas antes de calcular la evaluación.")
+            else:
                 total_score = st.session_state.evaluations_df['Puntuación'].sum()
                 num_questions = len(st.session_state.evaluations_df)
                 
-                # Calculate the maximum possible score
-                max_score = sum(max(q_opts.keys()) for category, questions in rangos_detallados.items() for q_name, q_opts in questions.items())
-                
-                # Calculate the percentage based on the maximum possible score (2 points per question)
-                # Max score if all answered with 2 points
+                # Calculate the maximum possible score (assuming 2 points is max per question)
                 max_possible_per_question_score = 2
                 theoretical_max_score = num_questions * max_possible_per_question_score
                 
                 if theoretical_max_score > 0:
                     percentage_score = (total_score / theoretical_max_score) * 100
                 else:
-                    percentage_score = 0
+                    percentage_score = 0 # Avoid division by zero if there are no questions
                 
                 st.success(f"Evaluación Completada:")
                 st.write(f"**Puntuación Total:** {total_score} puntos")
@@ -800,27 +839,25 @@ def main():
 
                 # Optional: Display the scores per category
                 st.markdown("### Puntuación por Categoría")
-                category_scores = st.session_state.evaluations_df.groupby('Categoría')['Puntuación'].sum()
+                category_scores = st.session_state.evaluations_df.groupby('Categoría')['Puntuación'].sum().reset_index()
+                category_scores.rename(columns={'Puntuación': 'Puntuación Obtenida'}, inplace=True)
                 
                 # Also calculate max possible score per category
-                max_category_scores = {}
+                max_category_scores_data = []
                 for category, questions in rangos_detallados.items():
-                    max_category_scores[category] = len(questions) * max_possible_per_question_score
+                    max_cat_score = len(questions) * max_possible_per_question_score
+                    max_category_scores_data.append({"Categoría": category, "Puntuación Máxima Posible": max_cat_score})
+                max_category_scores_df = pd.DataFrame(max_category_scores_data)
 
-                category_summary = []
-                for category, score in category_scores.items():
-                    max_cat_score = max_category_scores.get(category, 0)
-                    percentage = (score / max_cat_score) * 100 if max_cat_score > 0 else 0
-                    category_summary.append({
-                        "Categoría": category,
-                        "Puntuación Obtenida": score,
-                        "Puntuación Máxima Posible": max_cat_score,
-                        "Porcentaje de Cumplimiento": f"{percentage:.2f}%"
-                    })
-                st.dataframe(pd.DataFrame(category_summary), hide_index=True)
+                # Merge to get percentages
+                category_summary_df = pd.merge(category_scores, max_category_scores_df, on="Categoría", how="left")
+                category_summary_df['Porcentaje de Cumplimiento'] = category_summary_df.apply(
+                    lambda row: f"{(row['Puntuación Obtenida'] / row['Puntuación Máxima Posible']) * 100:.2f}%" if row['Puntuación Máxima Posible'] > 0 else "0.00%",
+                    axis=1
+                )
+                
+                st.dataframe(category_summary_df, hide_index=True)
 
-            else:
-                st.warning("Por favor, asegúrate de responder todas las preguntas antes de calcular la evaluación.")
 
     elif selected_page == "Análisis General":
         st.title("📊 Análisis General")
