@@ -71,8 +71,7 @@ st.title("¡Hola, usuario Sura! 👋")
 st.markdown("---")
 st.header("Proyecto de **Gerencia de Gestión Administrativa** en Ingeniería Clínica")
 st.markdown("""
-    Aquí podrás **analizar y gestionar los datos de avisos** para optimizar los procesos.
-    Creado por Naida López APRENDIZ UNIVERSITARIO en GERENCIA DE GESTIÓN ADMINISTRATIVA
+    Aquí podrás **analizar y gestionar los datos de avisos** para optimizar los procesos. Creado por Naida López APRENDIZ UNIVERSITARIO en GERENCIA DE GESTIÓN ADMINISTRATIVA
 """)
 # Set a nice style for plots
 sns.set_style('whitegrid')
