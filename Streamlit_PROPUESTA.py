@@ -204,8 +204,8 @@ horarios_dict = {
 }
 
 # --- Funciones para calcular indicadores de desempeño técnico ---
-def calcular_disponibilidad(df_subset: pd.DataFrame, horarios: dict) -> pd.Series:
-    """Calcula la disponibilidad promedio por Equipo."""
+def calcular_disponibilidad(df_subset: pd.DataFrame, horarios: dict, group_by_col: str) -> pd.Series:
+    """Calcula la disponibilidad promedio por la columna de agrupación."""
     if df_subset.empty:
         return pd.Series(dtype=float)
 
@@ -238,24 +238,24 @@ def calcular_disponibilidad(df_subset: pd.DataFrame, horarios: dict) -> pd.Serie
     disponibilidad_equipo = (horas_op_equipo - sum_parada_equipo) / horas_op_equipo * 100
     disponibilidad_equipo = disponibilidad_equipo.replace([-np.inf, np.inf], np.nan).fillna(0)
 
-    # Si la evaluación es por TIPO DE SERVICIO, promediamos la disponibilidad de los equipos por servicio
-    disponibilidad_por_servicio = df_subset.groupby('tipo_de_servicio')['equipo'].apply(
+    # Agregamos por la columna de agrupación seleccionada (tipo_de_servicio o proveedor)
+    disponibilidad_agrupada = df_subset.groupby(group_by_col)['equipo'].apply(
         lambda equipos: disponibilidad_equipo[equipos.unique()].mean()
     )
-    return disponibilidad_por_servicio
+    return disponibilidad_agrupada
 
-def calcular_mttr(df_subset: pd.DataFrame) -> pd.Series:
-    """Calcula el MTTR promedio por Tipo de Servicio."""
+def calcular_mttr(df_subset: pd.DataFrame, group_by_col: str) -> pd.Series:
+    """Calcula el MTTR promedio por la columna de agrupación."""
     if df_subset.empty:
         return pd.Series(dtype=float)
     df_subset['duracion_de_parada'] = pd.to_numeric(df_subset['duracion_de_parada'], errors='coerce').fillna(0)
-    mttr = df_subset.groupby('tipo_de_servicio').apply(
+    mttr = df_subset.groupby(group_by_col).apply(
         lambda x: x['duracion_de_parada'].sum() / x['aviso'].nunique() if x['aviso'].nunique() > 0 else 0
     )
     return mttr.replace([np.inf, -np.inf], np.nan).fillna(0)
 
-def calcular_mtbf(df_subset: pd.DataFrame, horarios: dict) -> pd.Series:
-    """Calcula el MTBF promedio por Tipo de Servicio."""
+def calcular_mtbf(df_subset: pd.DataFrame, horarios: dict, group_by_col: str) -> pd.Series:
+    """Calcula el MTBF promedio por la columna de agrupación."""
     if df_subset.empty:
         return pd.Series(dtype=float)
 
@@ -289,10 +289,10 @@ def calcular_mtbf(df_subset: pd.DataFrame, horarios: dict) -> pd.Series:
     mtbf_equipo = (horas_op_unicas_equipo - total_parada_por_equipo) / num_avisos_por_equipo
     mtbf_equipo = mtbf_equipo.replace([np.inf, -np.inf], np.nan).fillna(0) # Manejar divisiones por cero
 
-    mtbf_por_servicio = df_subset.groupby('tipo_de_servicio')['equipo'].apply(
+    mtbf_agrupado = df_subset.groupby(group_by_col)['equipo'].apply(
         lambda equipos: mtbf_equipo[equipos.unique()].mean()
     )
-    return mtbf_por_servicio
+    return mtbf_agrupado
 
 def clasificar_rendimiento(disponibilidad: pd.Series) -> pd.Series:
     """Clasifica el rendimiento en 'Alto', 'Medio' o 'Bajo' basado en la disponibilidad."""
@@ -671,12 +671,22 @@ if st.session_state.page == "Inicio y Carga de Datos":
                 
                 # Las funciones de cálculo de métricas técnicas ahora esperan los nombres de columna normalizados
                 if 'tipo_de_servicio' in st.session_state.df.columns and not st.session_state.df['tipo_de_servicio'].isnull().all():
-                    st.session_state.pre_calculated_metrics['disponibilidad_servicio'] = calcular_disponibilidad(st.session_state.df, horarios_dict)
-                    st.session_state.pre_calculated_metrics['mttr_servicio'] = calcular_mttr(st.session_state.df)
-                    st.session_state.pre_calculated_metrics['mtbf_servicio'] = calcular_mtbf(st.session_state.df, horarios_dict)
+                    # Recalculamos disponibilidad, MTTR, MTBF y rendimiento para ambos modos
+                    st.session_state.pre_calculated_metrics['disponibilidad_servicio'] = calcular_disponibilidad(st.session_state.df, horarios_dict, 'tipo_de_servicio')
+                    st.session_state.pre_calculated_metrics['mttr_servicio'] = calcular_mttr(st.session_state.df, 'tipo_de_servicio')
+                    st.session_state.pre_calculated_metrics['mtbf_servicio'] = calcular_mtbf(st.session_state.df, horarios_dict, 'tipo_de_servicio')
                     st.session_state.pre_calculated_metrics['rendimiento_servicio'] = clasificar_rendimiento(st.session_state.pre_calculated_metrics['disponibilidad_servicio'])
                 else:
                     st.warning("La columna 'tipo_de_servicio' no está disponible o está vacía para el cálculo de métricas técnicas por servicio.")
+
+                if 'proveedor' in st.session_state.df.columns and not st.session_state.df['proveedor'].isnull().all():
+                    st.session_state.pre_calculated_metrics['disponibilidad_proveedor'] = calcular_disponibilidad(st.session_state.df, horarios_dict, 'proveedor')
+                    st.session_state.pre_calculated_metrics['mttr_proveedor'] = calcular_mttr(st.session_state.df, 'proveedor')
+                    st.session_state.pre_calculated_metrics['mtbf_proveedor'] = calcular_mtbf(st.session_state.df, horarios_dict, 'proveedor')
+                    st.session_state.pre_calculated_metrics['rendimiento_proveedor'] = clasificar_rendimiento(st.session_state.pre_calculated_metrics['disponibilidad_proveedor'])
+                else:
+                    st.warning("La columna 'proveedor' no está disponible o está vacía para el cálculo de métricas técnicas por proveedor.")
+
 
                 st.success("✅ Datos cargados y procesados exitosamente.")
                 st.write(f"**Filas finales:** {len(st.session_state.df)} – **Columnas:** {len(st.session_state.df.columns)}")
@@ -748,6 +758,8 @@ elif st.session_state.page == "Evaluación de Desempeño":
             if 'tipo_de_servicio' in st.session_state.df.columns and not st.session_state.df['tipo_de_servicio'].isnull().all():
                 eval_targets = sorted(st.session_state.df['tipo_de_servicio'].dropna().unique().tolist())
                 target_column_name_internal = 'tipo_de_servicio'
+                column_for_matrix = 'proveedor' # Columnas de la matriz serán los proveedores
+                column_for_matrix_label = "Proveedores Asociados"
             else:
                 eval_targets = []
                 st.warning("No hay 'Tipo de Servicio' válidos para evaluar. Asegúrate de que la columna exista y no esté vacía.")
@@ -756,6 +768,8 @@ elif st.session_state.page == "Evaluación de Desempeño":
             if 'proveedor' in st.session_state.df.columns and not st.session_state.df['proveedor'].isnull().all():
                 eval_targets = sorted(st.session_state.df['proveedor'].dropna().unique().tolist())
                 target_column_name_internal = 'proveedor'
+                column_for_matrix = 'tipo_de_servicio' # Columnas de la matriz serán los tipos de servicio
+                column_for_matrix_label = "Tipos de Servicio Asociados"
             else:
                 eval_targets = []
                 st.warning("No hay 'Proveedor' válidos para evaluar. Asegúrate de que la columna exista y no esté vacía.")
@@ -811,7 +825,22 @@ elif st.session_state.page == "Evaluación de Desempeño":
             # --- Display Consolidated Evaluation Matrix ---
             st.subheader("Matriz Consolidada de Evaluaciones")
 
-            all_evaluated_targets = sorted(list(set([k[2] for k in st.session_state.evaluations.keys()])))
+            # Determinar qué elementos irán en las columnas de la matriz
+            if st.session_state.eval_mode == "Por Tipo de Servicio":
+                # Si evaluamos por Tipo de Servicio, las columnas son los proveedores asociados
+                # Filtra el DF original para el tipo de servicio seleccionado
+                relevant_df = st.session_state.df[st.session_state.df[target_column_name_internal] == st.session_state.selected_eval_target]
+                matrix_columns = sorted(relevant_df[column_for_matrix].dropna().unique().tolist())
+                # Si no hay proveedores asociados, o si la columna de proveedor no existe
+                if not matrix_columns:
+                    matrix_columns = ["Ningún Proveedor Asociado"]
+            else: # Por Proveedor
+                # Si evaluamos por Proveedor, las columnas son los tipos de servicio asociados
+                relevant_df = st.session_state.df[st.session_state.df[target_column_name_internal] == st.session_state.selected_eval_target]
+                matrix_columns = sorted(relevant_df[column_for_matrix].dropna().unique().tolist())
+                # Si no hay tipos de servicio asociados, o si la columna de tipo_de_servicio no existe
+                if not matrix_columns:
+                    matrix_columns = ["Ningún Tipo de Servicio Asociado"]
 
             matrix_data = {}
             index_names = []
@@ -824,52 +853,62 @@ elif st.session_state.page == "Evaluación de Desempeño":
                     full_question_name = f"**{category}**<br>{question}"
                     index_names.append(full_question_name)
                     matrix_data[full_question_name] = {}
-                    for target in all_evaluated_targets:
-                        score = st.session_state.evaluations.get((category, question, target), "N/A")
-                        matrix_data[full_question_name][target] = score
+                    for col_target in matrix_columns:
+                        # Si evaluamos por Tipo de Servicio, el "target" es el tipo de servicio seleccionado.
+                        # El score es para el tipo de servicio, no para el proveedor individual.
+                        # Entonces, la evaluación manual es la misma para todas las columnas de proveedor.
+                        if st.session_state.eval_mode == "Por Tipo de Servicio":
+                            score = st.session_state.evaluations.get((category, question, st.session_state.selected_eval_target), "N/A")
+                        else: # Si evaluamos Por Proveedor, el target es el proveedor seleccionado
+                            score = st.session_state.evaluations.get((category, question, st.session_state.selected_eval_target), "N/A")
+                        matrix_data[full_question_name][col_target] = score
 
             # Add technical metrics as rows if applicable
-            if st.session_state.eval_mode == "Por Tipo de Servicio" and st.session_state.pre_calculated_metrics:
-                tech_category = "Desempeño técnico"
-                for tech_question, ranges in rangos_detallados[tech_category].items():
-                    full_question_name = f"**{tech_category}**<br>{tech_question}"
-                    index_names.append(full_question_name)
-                    matrix_data[full_question_name] = {}
-                    for target in all_evaluated_targets:
-                        # Asegurarse de que el target coincide con la clave en pre_calculated_metrics
-                        # Las claves de pre_calculated_metrics son los valores de 'tipo_de_servicio' (normalizado)
-                        if tech_question == "Disponibilidad promedio (%)":
-                            value = st.session_state.pre_calculated_metrics['disponibilidad_servicio'].get(target, 0)
-                            matrix_data[full_question_name][target] = f"{value:.2f}%"
-                        elif tech_question == "MTTR promedio (hrs)":
-                            value = st.session_state.pre_calculated_metrics['mttr_servicio'].get(target, 0)
-                            matrix_data[full_question_name][target] = f"{value:.2f} hrs"
-                        elif tech_question == "MTBF promedio (hrs)":
-                            value = st.session_state.pre_calculated_metrics['mtbf_servicio'].get(target, 0)
-                            matrix_data[full_question_name][target] = f"{value:.2f} hrs"
-                        elif tech_question == "Rendimiento promedio equipos":
-                            value = st.session_state.pre_calculated_metrics['rendimiento_servicio'].get(target, 'N/A')
-                            matrix_data[full_question_name][target] = value
-                        else:
-                            matrix_data[full_question_name][target] = "N/A"
-            
-            # Add a row for "Associated Providers" if evaluating by service type
-            if st.session_state.eval_mode == "Por Tipo de Servicio":
-                full_question_name = "**Proveedores Asociados**"
+            tech_category = "Desempeño técnico"
+            for tech_question, ranges in rangos_detallados[tech_category].items():
+                full_question_name = f"**{tech_category}**<br>{tech_question}"
                 index_names.append(full_question_name)
                 matrix_data[full_question_name] = {}
-                for target in all_evaluated_targets:
-                    # Usar el nombre de columna normalizado 'tipo_de_servicio' y 'proveedor'
-                    target_df_for_providers = st.session_state.df[st.session_state.df['tipo_de_servicio'] == target]
-                    if 'proveedor' in target_df_for_providers.columns:
-                        associated_providers_for_target = target_df_for_providers['proveedor'].dropna().unique().tolist()
-                        matrix_data[full_question_name][target] = ", ".join(associated_providers_for_target) if associated_providers_for_target else "Ninguno"
-                    else:
-                        matrix_data[full_question_name][target] = "N/A (Columna 'proveedor' no encontrada)"
-
+                for col_target in matrix_columns:
+                    value = "N/A" # Default
+                    if st.session_state.eval_mode == "Por Tipo de Servicio":
+                        # El cálculo técnico es para el TIPO DE SERVICIO general
+                        if 'disponibilidad_servicio' in st.session_state.pre_calculated_metrics:
+                            if tech_question == "Disponibilidad promedio (%)":
+                                value = st.session_state.pre_calculated_metrics['disponibilidad_servicio'].get(st.session_state.selected_eval_target, 0)
+                                value = f"{value:.2f}%"
+                            elif tech_question == "MTTR promedio (hrs)":
+                                value = st.session_state.pre_calculated_metrics['mttr_servicio'].get(st.session_state.selected_eval_target, 0)
+                                value = f"{value:.2f} hrs"
+                            elif tech_question == "MTBF promedio (hrs)":
+                                value = st.session_state.pre_calculated_metrics['mtbf_servicio'].get(st.session_state.selected_eval_target, 0)
+                                value = f"{value:.2f} hrs"
+                            elif tech_question == "Rendimiento promedio equipos":
+                                value = st.session_state.pre_calculated_metrics['rendimiento_servicio'].get(st.session_state.selected_eval_target, 'N/A')
+                    else: # Por Proveedor
+                        # El cálculo técnico es para el PROVEEDOR general
+                        if 'disponibilidad_proveedor' in st.session_state.pre_calculated_metrics:
+                            if tech_question == "Disponibilidad promedio (%)":
+                                value = st.session_state.pre_calculated_metrics['disponibilidad_proveedor'].get(st.session_state.selected_eval_target, 0)
+                                value = f"{value:.2f}%"
+                            elif tech_question == "MTTR promedio (hrs)":
+                                value = st.session_state.pre_calculated_metrics['mttr_proveedor'].get(st.session_state.selected_eval_target, 0)
+                                value = f"{value:.2f} hrs"
+                            elif tech_question == "MTBF promedio (hrs)":
+                                value = st.session_state.pre_calculated_metrics['mtbf_proveedor'].get(st.session_state.selected_eval_target, 0)
+                                value = f"{value:.2f} hrs"
+                            elif tech_question == "Rendimiento promedio equipos":
+                                value = st.session_state.pre_calculated_metrics['rendimiento_proveedor'].get(st.session_state.selected_eval_target, 'N/A')
+                    
+                    matrix_data[full_question_name][col_target] = value
 
             if matrix_data:
                 consolidated_matrix_df = pd.DataFrame(matrix_data).T
+                
+                # Reordenar las columnas para asegurar que los "targets" aparezcan primero
+                # Esto es crucial para que la matriz se muestre correctamente con las columnas dinámicas
+                consolidated_matrix_df = consolidated_matrix_df[matrix_columns]
+                
                 consolidated_matrix_df.index.name = "Criterio / Pregunta"
 
                 st.markdown(consolidated_matrix_df.to_html(escape=False), unsafe_allow_html=True)
