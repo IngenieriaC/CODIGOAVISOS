@@ -206,93 +206,104 @@ horarios_dict = {
 # --- Funciones para calcular indicadores de desempeño técnico ---
 def calcular_disponibilidad(df_subset: pd.DataFrame, horarios: dict, group_by_col: str) -> pd.Series:
     """Calcula la disponibilidad promedio por la columna de agrupación."""
-    if df_subset.empty:
+    # Eliminar filas con NaN en 'equipo' para evitar KeyError
+    df_subset_cleaned = df_subset.dropna(subset=['equipo']).copy()
+    if df_subset_cleaned.empty:
         return pd.Series(dtype=float)
 
-    df_subset['duracion_de_parada'] = pd.to_numeric(df_subset['duracion_de_parada'], errors='coerce').fillna(0)
+    df_subset_cleaned['duracion_de_parada'] = pd.to_numeric(df_subset_cleaned['duracion_de_parada'], errors='coerce').fillna(0)
 
-    df_subset['Horario_Key'] = df_subset['denominacion_de_objeto_tecnico'].apply(
+    df_subset_cleaned['Horario_Key'] = df_subset_cleaned['denominacion_de_objeto_tecnico'].apply(
         lambda x: next((key for key in horarios.keys() if key.lower() in str(x).lower()), None)
     )
 
-    default_horas_dia = np.mean([h[0] for h in horarios.values()])
-    default_dias_anio = np.mean([h[1] for h in horarios.values()])
+    default_horas_dia = np.mean([h[0] for h in horarios.values()]) if horarios else 8
+    default_dias_anio = np.mean([h[1] for h in horarios.values()]) if horarios else 250
 
-    df_subset['Horas_Dia_Equipo'] = df_subset.apply(
+    df_subset_cleaned['Horas_Dia_Equipo'] = df_subset_cleaned.apply(
         lambda row: horarios[row['Horario_Key']][0] if row['Horario_Key'] in horarios else default_horas_dia,
         axis=1
     )
-    df_subset['Dias_Anio_Equipo'] = df_subset.apply(
+    df_subset_cleaned['Dias_Anio_Equipo'] = df_subset_cleaned.apply(
         lambda row: horarios[row['Horario_Key']][1] if row['Horario_Key'] in horarios else default_dias_anio,
         axis=1
     )
 
-    df_subset['Horas_Operativas_Totales'] = df_subset['Horas_Dia_Equipo'] * df_subset['Dias_Anio_Equipo']
+    df_subset_cleaned['Horas_Operativas_Totales'] = df_subset_cleaned['Horas_Dia_Equipo'] * df_subset_cleaned['Dias_Anio_Equipo']
 
-    sum_parada_equipo = df_subset.groupby('equipo')['duracion_de_parada'].sum()
+    sum_parada_equipo = df_subset_cleaned.groupby('equipo')['duracion_de_parada'].sum()
 
-    horas_op_equipo = df_subset.drop_duplicates(subset='equipo').set_index('equipo')['Horas_Operativas_Totales']
+    horas_op_equipo = df_subset_cleaned.drop_duplicates(subset='equipo').set_index('equipo')['Horas_Operativas_Totales']
 
     horas_op_equipo = horas_op_equipo.reindex(sum_parada_equipo.index).fillna(0)
 
+    # Evitar división por cero
     disponibilidad_equipo = (horas_op_equipo - sum_parada_equipo) / horas_op_equipo * 100
     disponibilidad_equipo = disponibilidad_equipo.replace([-np.inf, np.inf], np.nan).fillna(0)
 
     # Agregamos por la columna de agrupación seleccionada (tipo_de_servicio o proveedor)
-    disponibilidad_agrupada = df_subset.groupby(group_by_col)['equipo'].apply(
-        lambda equipos: disponibilidad_equipo[equipos.unique()].mean()
+    # Filtrar equipos que no están en disponibilidad_equipo.index
+    disponibilidad_agrupada = df_subset_cleaned.groupby(group_by_col)['equipo'].apply(
+        lambda equipos: disponibilidad_equipo[equipos.unique().intersection(disponibilidad_equipo.index)].mean()
+        if not equipos.unique().intersection(disponibilidad_equipo.index).empty else 0
     )
     return disponibilidad_agrupada
 
 def calcular_mttr(df_subset: pd.DataFrame, group_by_col: str) -> pd.Series:
     """Calcula el MTTR promedio por la columna de agrupación."""
-    if df_subset.empty:
+    df_subset_cleaned = df_subset.dropna(subset=['equipo', 'aviso']).copy() # Asegurarse que 'equipo' y 'aviso' no sean NaN
+    if df_subset_cleaned.empty:
         return pd.Series(dtype=float)
-    df_subset['duracion_de_parada'] = pd.to_numeric(df_subset['duracion_de_parada'], errors='coerce').fillna(0)
-    mttr = df_subset.groupby(group_by_col).apply(
+    df_subset_cleaned['duracion_de_parada'] = pd.to_numeric(df_subset_cleaned['duracion_de_parada'], errors='coerce').fillna(0)
+    mttr = df_subset_cleaned.groupby(group_by_col).apply(
         lambda x: x['duracion_de_parada'].sum() / x['aviso'].nunique() if x['aviso'].nunique() > 0 else 0
     )
     return mttr.replace([np.inf, -np.inf], np.nan).fillna(0)
 
 def calcular_mtbf(df_subset: pd.DataFrame, horarios: dict, group_by_col: str) -> pd.Series:
     """Calcula el MTBF promedio por la columna de agrupación."""
-    if df_subset.empty:
+    df_subset_cleaned = df_subset.dropna(subset=['equipo', 'aviso']).copy() # Asegurarse que 'equipo' y 'aviso' no sean NaN
+    if df_subset_cleaned.empty:
         return pd.Series(dtype=float)
 
-    df_subset['duracion_de_parada'] = pd.to_numeric(df_subset['duracion_de_parada'], errors='coerce').fillna(0)
+    df_subset_cleaned['duracion_de_parada'] = pd.to_numeric(df_subset_cleaned['duracion_de_parada'], errors='coerce').fillna(0)
 
-    df_subset['Horario_Key'] = df_subset['denominacion_de_objeto_tecnico'].apply(
+    df_subset_cleaned['Horario_Key'] = df_subset_cleaned['denominacion_de_objeto_tecnico'].apply(
         lambda x: next((key for key in horarios.keys() if key.lower() in str(x).lower()), None)
     )
-    default_horas_dia = np.mean([h[0] for h in horarios.values()])
-    default_dias_anio = np.mean([h[1] for h in horarios.values()])
+    default_horas_dia = np.mean([h[0] for h in horarios.values()]) if horarios else 8
+    default_dias_anio = np.mean([h[1] for h in horarios.values()]) if horarios else 250
 
-    df_subset['Horas_Dia_Equipo'] = df_subset.apply(
+    df_subset_cleaned['Horas_Dia_Equipo'] = df_subset_cleaned.apply(
         lambda row: horarios[row['Horario_Key']][0] if row['Horario_Key'] in horarios else default_horas_dia,
         axis=1
     )
-    df_subset['Dias_Anio_Equipo'] = df_subset.apply(
+    df_subset_cleaned['Dias_Anio_Equipo'] = df_subset_cleaned.apply(
         lambda row: horarios[row['Horario_Key']][1] if row['Horario_Key'] in horarios else default_dias_anio,
         axis=1
     )
-    df_subset['Horas_Operativas_Totales_Equipo'] = df_subset['Horas_Dia_Equipo'] * df_subset['Dias_Anio_Equipo']
+    df_subset_cleaned['Horas_Operativas_Totales_Equipo'] = df_subset_cleaned['Horas_Dia_Equipo'] * df_subset_cleaned['Dias_Anio_Equipo']
 
-    total_parada_por_equipo = df_subset.groupby('equipo')['duracion_de_parada'].sum()
+    total_parada_por_equipo = df_subset_cleaned.groupby('equipo')['duracion_de_parada'].sum()
 
-    num_avisos_por_equipo = df_subset.groupby('equipo')['aviso'].nunique()
+    num_avisos_por_equipo = df_subset_cleaned.groupby('equipo')['aviso'].nunique()
 
-    horas_op_unicas_equipo = df_subset.drop_duplicates(subset='equipo').set_index('equipo')['Horas_Operativas_Totales_Equipo']
+    horas_op_unicas_equipo = df_subset_cleaned.drop_duplicates(subset='equipo').set_index('equipo')['Horas_Operativas_Totales_Equipo']
 
     total_parada_por_equipo = total_parada_por_equipo.reindex(horas_op_unicas_equipo.index).fillna(0)
     num_avisos_por_equipo = num_avisos_por_equipo.reindex(horas_op_unicas_equipo.index).fillna(0)
 
+    # Evitar división por cero
     mtbf_equipo = (horas_op_unicas_equipo - total_parada_por_equipo) / num_avisos_por_equipo
     mtbf_equipo = mtbf_equipo.replace([np.inf, -np.inf], np.nan).fillna(0) # Manejar divisiones por cero
 
-    mtbf_agrupado = df_subset.groupby(group_by_col)['equipo'].apply(
-        lambda equipos: mtbf_equipo[equipos.unique()].mean()
+    # Filtrar equipos que no están en mtbf_equipo.index
+    mtbf_agrupado = df_subset_cleaned.groupby(group_by_col)['equipo'].apply(
+        lambda equipos: mtbf_equipo[equipos.unique().intersection(mtbf_equipo.index)].mean()
+        if not equipos.unique().intersection(mtbf_equipo.index).empty else 0
     )
     return mtbf_agrupado
+
 
 def clasificar_rendimiento(disponibilidad: pd.Series) -> pd.Series:
     """Clasifica el rendimiento en 'Alto', 'Medio' o 'Bajo' basado en la disponibilidad."""
@@ -664,6 +675,14 @@ if st.session_state.page == "Inicio y Carga de Datos":
                 if 'denominacion_ejecutante' in df_processed.columns:
                     df_processed.rename(columns={'denominacion_ejecutante': 'proveedor'}, inplace=True)
                 
+                # *** Nuevo paso para manejar NaN en 'equipo' y columnas clave antes de guardar en session_state ***
+                initial_equip_nan_rows = df_processed['equipo'].isnull().sum()
+                if initial_equip_nan_rows > 0:
+                    st.info(f"Se encontraron y manejaron {initial_equip_nan_rows} registros con valores faltantes en la columna 'equipo'.")
+                    # Puedes elegir entre dropear, llenar con un valor por defecto o alertar
+                    # Aquí vamos a dropear los NaN en 'equipo' para asegurar la robustez de las funciones de cálculo
+                    df_processed = df_processed.dropna(subset=['equipo', 'aviso']).copy()
+                    
                 st.session_state.df = df_processed
 
                 # Pre-calculate all technical metrics once after data load
