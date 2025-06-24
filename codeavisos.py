@@ -161,8 +161,8 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
         tmp2.drop(columns=["equipo_iw29", "equipo"], errors='ignore', inplace=True) # Drop both original and suffixed if they exist
         tmp2 = pd.merge(tmp2, equipo_original, on="aviso", how="left")
     elif not equipo_original.empty and "equipo" in tmp2.columns: # If no suffix, just replace
-         tmp2.drop(columns=["equipo"], errors='ignore', inplace=True)
-         tmp2 = pd.merge(tmp2, equipo_original, on="aviso", how="left")
+        tmp2.drop(columns=["equipo"], errors='ignore', inplace=True)
+        tmp2 = pd.merge(tmp2, equipo_original, on="aviso", how="left")
     elif not equipo_original.empty: # If 'equipo' wasn't there at all, add it
         tmp2 = pd.merge(tmp2, equipo_original, on="aviso", how="left")
 
@@ -636,363 +636,199 @@ class AnalysisApp:
             if value_col not in self.df.columns:
                 st.warning(f"La columna de costos '{value_col}' no se encontró en los datos para este análisis.")
                 return
-            if not self.df[value_col].isnull().all():
+            if not self.df[value_col].empty:
                 grouped_data = self.df.groupby(group_col)[value_col].sum().sort_values(ascending=False)
-                title = f"Costos Totales por {analysis_type.split(' por ')[1].replace('por', 'según')}"
-                y_label = "Costo Total Real"
+                title = f"Costos Totales por {analysis_type.split(' por ')[1]}"
+                y_label = "Costos Totales"
             else:
-                st.info(f"La columna '{value_col}' está vacía o contiene solo valores nulos. No se pueden calcular costos.")
+                st.info(f"No hay datos de costos disponibles para '{group_col}'.")
                 return
         elif analysis_metric == "avisos":
-            if 'aviso' in self.df.columns and not self.df['aviso'].isnull().all():
+            if not self.df['aviso'].empty:
                 grouped_data = self.df.groupby(group_col)['aviso'].nunique().sort_values(ascending=False)
-                title = f"Cantidad de Avisos por {analysis_type.split(' por ')[1].replace('por', 'según')}"
-                y_label = "Cantidad de Avisos"
+                title = f"Número de Avisos por {analysis_type.split(' por ')[1]}"
+                y_label = "Número de Avisos Únicos"
             else:
-                st.info("La columna 'aviso' está vacía o contiene solo valores nulos. No se pueden contar avisos.")
+                st.info(f"No hay datos de avisos disponibles para '{group_col}'.")
                 return
-        else:
-            st.error("Métrica de análisis no reconocida.")
-            return
 
-        if grouped_data.empty:
-            st.info("No hay datos para mostrar para el análisis seleccionado.")
-            return
+        if not grouped_data.empty:
+            # Display metrics for the selected analysis type
+            st.markdown(f"### Desglose por {analysis_type.split(' por ')[1]}")
+            st.dataframe(grouped_data.reset_index(name=y_label).rename(columns={group_col: analysis_type.split(' por ')[1]}))
 
-        # Paginación
-        items_per_page = 15
-        total_items = len(grouped_data)
-        total_pages = (total_items + items_per_page - 1) // items_per_page
-
-        if f'analysis_page_{analysis_type}' not in st.session_state:
-            st.session_state[f'analysis_page_{analysis_type}'] = 0
-
-        current_page = st.session_state[f'analysis_page_{analysis_type}']
-
-        start_idx = current_page * items_per_page
-        end_idx = min(start_idx + items_per_page, total_items)
-
-        paginated_data = grouped_data.iloc[start_idx:end_idx]
-
-        st.write(f"### {title}")
-        st.dataframe(paginated_data.reset_index().rename(columns={grouped_data.name: y_label}))
-
-        # Controles de paginación
-        col1, col2, col3 = st.columns([1, 2, 1])
-        with col1:
-            if st.button("Página Anterior", key=f"prev_page_{analysis_type}"):
-                if current_page > 0:
-                    st.session_state[f'analysis_page_{analysis_type}'] -= 1
-                    st.rerun()
-        with col2:
-            st.write(f"Página {current_page + 1} de {total_pages}")
-        with col3:
-            if st.button("Página Siguiente", key=f"next_page_{analysis_type}"):
-                if current_page < total_pages - 1:
-                    st.session_state[f'analysis_page_{analysis_type}'] += 1
-                    st.rerun()
-
-        # Gráfico
-        if not paginated_data.empty:
-            fig, ax = plt.subplots(figsize=(10, max(6, len(paginated_data) * 0.5)))
-            sns.barplot(x=paginated_data.values, y=paginated_data.index, ax=ax, palette='viridis')
+            # Display bar chart
+            st.markdown(f"### Gráfico de Barras: {title}")
+            fig, ax = plt.subplots(figsize=(12, 6))
+            sns.barplot(x=grouped_data.index, y=grouped_data.values, ax=ax, palette='viridis')
             ax.set_title(title)
-            ax.set_xlabel(y_label)
-            ax.set_ylabel(group_col)
+            ax.set_xlabel(analysis_type.split(' por ')[1])
+            ax.set_ylabel(y_label)
+            plt.xticks(rotation=45, ha='right')
             plt.tight_layout()
             st.pyplot(fig)
         else:
-            st.info("No hay datos para mostrar en esta página.")
+            st.info("No hay datos para mostrar el análisis seleccionado.")
 
 
-# --- Initialize session state ---
-if 'df' not in st.session_state:
-    st.session_state.df = None
-if 'evaluations' not in st.session_state:
-    st.session_state.evaluations = {}
-if 'selected_eval_target' not in st.session_state:
-    st.session_state.selected_eval_target = None
-if 'eval_mode' not in st.session_state:
-    st.session_state.eval_mode = "Por Tipo de Servicio" # Default mode
-if 'pre_calculated_metrics' not in st.session_state:
-    st.session_state.pre_calculated_metrics = {}
-if 'original_excel_buffer' not in st.session_state:
-    st.session_state.original_excel_buffer = None
-if 'page' not in st.session_state:
-    st.session_state.page = "Inicio y Carga de Datos"
+# --- Main Application Logic ---
+def main():
+    st.sidebar.title("Navegación")
+    selected_page = st.sidebar.radio(
+        "Ir a:",
+        ["Carga de Datos", "Evaluación de Proveedores", "Análisis General"],
+        index=0 # Default to "Carga de Datos"
+    )
 
-# --- Sidebar para navegación ---
-st.sidebar.title("Menú Principal")
-page_options = [
-    "Inicio y Carga de Datos",
-    "Evaluación de Desempeño",
-    "Análisis General",
-]
-selected_page = st.sidebar.radio("Ir a:", page_options, key="main_menu_selection")
-st.session_state.page = selected_page
+    if selected_page == "Carga de Datos":
+        st.title("📂 Carga de Datos")
+        st.write("Sube tu archivo Excel para comenzar el análisis.")
 
-# --- Contenido de la página ---
-
-if st.session_state.page == "Inicio y Carga de Datos":
-    st.title("¡Hola, usuario Sura! 👋")
-    st.markdown("---")
-    st.header("Proyecto de **Gerencia de Gestión Administrativa** en Ingeniería Clínica")
-    st.markdown("""
-        Aquí podrás **analizar y gestionar los datos de avisos** para optimizar los procesos.
-        Por favor, **sube el archivo `BASE DE DATOS.XLSX`** para comenzar.
-    """)
-
-    uploaded_file = st.file_uploader("Sube tu archivo 'BASE DE DATOS.XLSX' aquí", type=["xlsx"])
-
-    if uploaded_file:
-        # Guardar el buffer del archivo original para descarga
-        st.session_state.original_excel_buffer = io.BytesIO(uploaded_file.getvalue())
-        st.session_state.original_excel_buffer.seek(0) # Rebobinar para futuras lecturas
-
-        file_buffer = io.BytesIO(uploaded_file.getvalue())
-
-        with st.spinner('Cargando y procesando datos... Esto puede tomar un momento.'):
-            try:
-                df_processed = load_and_merge_data(file_buffer)
-
-                initial_rows = len(df_processed)
-                # Asegúrate de usar el nombre de columna normalizado 'status_del_sistema'
-                if 'status_del_sistema' in df_processed.columns:
-                    df_processed = df_processed[~df_processed["status_del_sistema"].str.contains("PTBO", case=False, na=False)]
-                    st.info(f"Se eliminaron {initial_rows - len(df_processed)} registros con 'PTBO' en 'Status del sistema'.")
-
-                # Dejar solo una fila con coste por cada aviso (considerando el costo total para el aviso)
-                # This transformation seems specific. If multiple cost entries for an aviso should be summed,
-                # a simple groupby().sum() would be more appropriate earlier in the merge process.
-                # Keeping it as per original logic but note for potential review.
-                if 'costes_tot_reales' in df_processed.columns and 'aviso' in df_processed.columns:
-                    df_processed['costes_tot_reales'] = df_processed.groupby('aviso')['costes_tot_reales'].transform(
-                        lambda x: [x.iloc[0]] + [0]*(len(x)-1) if len(x) > 1 else [x.iloc[0]]
-                    )
-                    st.info("Se ajustaron los costes para que cada aviso tenga solo un valor de coste principal.")
-
-
-                st.session_state.df = df_processed
-
-                # Pre-calculate all technical metrics once after data load
-                st.session_state.pre_calculated_metrics = {}
-
-                st.session_state.pre_calculated_metrics['disponibilidad'] = calcular_disponibilidad(st.session_state.df, horarios_dict)
-                st.session_state.pre_calculated_metrics['mttr'] = calcular_mttr(st.session_state.df)
-                st.session_state.pre_calculated_metrics['mtbf'] = calcular_mtbf(st.session_state.df, horarios_dict)
-                st.session_state.pre_calculated_metrics['rendimiento'] = clasificar_rendimiento(st.session_state.pre_calculated_metrics['disponibilidad'])
-
-                st.success("✅ Datos cargados y procesados exitosamente.")
-                st.write(f"**Filas finales:** {len(st.session_state.df)} – **Columnas:** {len(st.session_state.df.columns)}")
-
-                st.markdown("---")
-                st.subheader("Descarga de Datos")
-
-                # Botón para descargar el archivo Excel original
-                if st.session_state.original_excel_buffer:
-                    st.download_button(
-                        label="Descargar Excel Original",
-                        data=st.session_state.original_excel_buffer,
-                        file_name="BASE_DE_DATOS_original.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        key="download_original_excel"
-                    )
-
-                csv_output = st.session_state.df.to_csv(index=False).encode('utf-8')
-                st.download_button(
-                    label="Descargar Datos Procesados (CSV)",
-                    data=csv_output,
-                    file_name="avisos_filtrados.csv",
-                    mime="text/csv",
-                    help="Descarga el archivo procesado en formato CSV."
-                )
-
-                excel_buffer_processed = io.BytesIO()
-                st.session_state.df.to_excel(excel_buffer_processed, index=False, engine='openpyxl')
-                excel_buffer_processed.seek(0)
-                st.download_button(
-                    label="Descargar Datos Procesados (Excel)",
-                    data=excel_buffer_processed,
-                    file_name="avisos_filtrados.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    help="Descarga el archivo procesado en formato XLSX."
-                )
-
-                st.markdown("---")
-                st.success("¡El procesamiento ha finalizado! Ahora puedes descargar tus datos o seguir explorando otras secciones.")
-
-            except Exception as e:
-                st.error(f"❌ ¡Ups! Ocurrió un error al procesar el archivo: {e}")
-                st.warning("Por favor, verifica que el archivo subido sea `BASE DE DATOS.XLSX` y tenga el formato de hojas esperado.")
-                st.exception(e)
-    else:
-        st.info("⬆️ Sube tu archivo `BASE DE DATOS.XLSX` para empezar con el análisis.")
-
-# --- Sección de Evaluación de Desempeño ---
-elif st.session_state.page == "Evaluación de Desempeño":
-    st.title("📊 Evaluación de Desempeño")
-    st.markdown("""
-        Utiliza esta sección para evaluar el desempeño de los **proveedores** o **tipos de servicio**
-        basado en criterios de calidad, oportunidad, precio y postventa, además de visualizar métricas de desempeño técnico.
-    """)
-
-    if st.session_state.df is None or st.session_state.df.empty:
-        st.warning("Por favor, carga el archivo `BASE DE DATOS.XLSX` en la sección 'Inicio y Carga de Datos' para acceder a la evaluación.")
-    else:
-        # Selección del modo de evaluación
-        st.session_state.eval_mode = st.radio(
-            "Selecciona el modo de evaluación:",
-            ("Por Tipo de Servicio", "Por Proveedor"),
-            index=0 if st.session_state.eval_mode == "Por Tipo de Servicio" else 1,
-            key="eval_mode_radio"
+        uploaded_file = st.file_uploader(
+            "Arrastra y suelta tu archivo Excel aquí o haz clic para buscar",
+            type=["xlsx"],
+            accept_multiple_files=False,
+            help="Sube un archivo .xlsx que contenga las hojas: IW29, IW39, IH08, IW65, ZPM015."
         )
 
-        target_column_for_evaluation = ''
-        eval_targets = []
+        if uploaded_file is not None:
+            # Leer el archivo como un buffer para poder pasarlo a la función de carga
+            file_buffer = io.BytesIO(uploaded_file.getvalue())
+            df_consolidado = load_and_merge_data(file_buffer)
 
-        if st.session_state.eval_mode == "Por Tipo de Servicio":
-            if 'tipo_de_servicio' in st.session_state.df.columns and not st.session_state.df['tipo_de_servicio'].isnull().all():
-                eval_targets = sorted(st.session_state.df['tipo_de_servicio'].dropna().unique().tolist())
-                target_column_for_evaluation = 'tipo_de_servicio'
+            if not df_consolidado.empty:
+                st.success("Archivo cargado y procesado exitosamente. Se encontraron los siguientes datos:")
+                st.dataframe(df_consolidado.head())
+                st.session_state['df_consolidado'] = df_consolidado
             else:
-                st.warning("No hay 'Tipo de Servicio' válidos para evaluar. Asegúrate de que la columna exista y no esté vacía.")
-        else: # Por Proveedor
-            if 'proveedor' in st.session_state.df.columns and not st.session_state.df['proveedor'].isnull().all():
-                eval_targets = sorted(st.session_state.df['proveedor'].dropna().unique().tolist())
-                target_column_for_evaluation = 'proveedor'
-            else:
-                st.warning("No hay 'Proveedor' válidos para evaluar. Asegúrate de que la columna exista y no esté vacía.")
-
-        if not eval_targets:
-            st.info("No hay objetivos de evaluación disponibles. Sube un archivo con datos válidos.")
+                st.error("No se pudo procesar el archivo o las hojas esperadas no contienen datos.")
+                st.session_state['df_consolidado'] = pd.DataFrame()
         else:
-            # Initialize selected_eval_target if it's not set or not in the current eval_targets
-            if st.session_state.selected_eval_target not in eval_targets:
-                st.session_state.selected_eval_target = eval_targets[0]
+            st.info("Esperando que subas un archivo.")
+            if 'df_consolidado' not in st.session_state:
+                st.session_state['df_consolidado'] = pd.DataFrame()
 
-            selected_target_index = eval_targets.index(st.session_state.selected_eval_target)
+    elif selected_page == "Evaluación de Proveedores":
+        st.title("⭐ Evaluación de Proveedores")
+        st.markdown("Por favor, selecciona las opciones que mejor describen el desempeño del proveedor para cada criterio.")
 
-            st.session_state.selected_eval_target = st.selectbox(
-                f"Selecciona el {st.session_state.eval_mode.split(' ')[1].lower()} a evaluar:",
-                eval_targets,
-                index=selected_target_index,
-                key="selected_eval_target_box"
-            )
-
-            st.markdown(f"### Evaluación para: **{st.session_state.selected_eval_target}**")
-
-            # Display manual evaluation questions for the selected target
-            st.subheader("Criterios de Evaluación Manual:")
+        # Initialize session state for evaluations if not present
+        if 'evaluations_df' not in st.session_state:
+            # Create a DataFrame to hold the evaluation questions and a column for user selection
+            evaluation_data = []
             for category, questions in rangos_detallados.items():
-                if category == "Desempeño técnico":
-                    continue
-                st.markdown(f"#### {category}")
                 for question, options in questions.items():
-                    unique_key = f"{category}_{question}_{st.session_state.selected_eval_target}"
+                    # Get the string descriptions for the options
+                    option_descriptions = [f"{score}: {desc}" for score, desc in options.items()]
+                    evaluation_data.append({
+                        "Categoría": category,
+                        "Pregunta": question,
+                        "Opciones": option_descriptions, # Store list of descriptions for dropdown
+                        "Puntuación": None # Placeholder for user's numerical selection
+                    })
+            st.session_state.evaluations_df = pd.DataFrame(evaluation_data)
+            # Store the raw options for later retrieval of the score
+            st.session_state.rangos_detallados = rangos_detallados
 
-                    sorted_options = sorted(options.items(), key=lambda item: item[0], reverse=True)
-                    option_labels = [f"{v} ({k})" for k, v in sorted_options]
-                    option_values = [k for k, v in sorted_options]
+        # Display the evaluation table using st.data_editor
+        st.subheader("Criterios de Evaluación")
+        
+        # Prepare the DataFrame for display with dropdowns
+        # The 'Opciones' column will be used to populate the dropdowns in data_editor
+        edited_df = st.data_editor(
+            st.session_state.evaluations_df,
+            column_config={
+                "Opciones": st.column_config.SelectboxColumn(
+                    "Selecciona una Opción",
+                    help="Elige la opción que mejor describe tu evaluación.",
+                    options=[desc for sublist in [q_data["Opciones"] for q_data in st.session_state.evaluations_df.to_dict('records')] for desc in sublist], # Flatten all options for dropdown
+                    required=True,
+                ),
+                "Puntuación": st.column_config.NumberColumn(
+                    "Puntuación Asignada",
+                    help="La puntuación asignada automáticamente según tu selección.",
+                    disabled=True # This column will be updated automatically
+                ),
+                "Categoría": st.column_config.TextColumn("Categoría", disabled=True),
+                "Pregunta": st.column_config.TextColumn("Pregunta", disabled=True)
+            },
+            hide_index=True,
+            num_rows="dynamic",
+            use_container_width=True,
+            key="eval_table"
+        )
 
-                    current_value = st.session_state.evaluations.get((category, question, st.session_state.selected_eval_target), None)
+        # Process the edited DataFrame to calculate scores
+        # We need to iterate through the edited_df and update the 'Puntuación' based on the selected 'Opciones'
+        for index, row in edited_df.iterrows():
+            selected_option_desc = row['Opciones']
+            question = row['Pregunta']
+            category = row['Categoría']
 
-                    try:
-                        # Set default to 0 if current_value is not found in option_values
-                        default_index = option_values.index(current_value) if current_value in option_values else 0
-                    except ValueError:
-                        default_index = 0 # Fallback if value not in options (e.g., if options changed)
+            # Find the corresponding score from rangos_detallados
+            score_found = None
+            if category in st.session_state.rangos_detallados and question in st.session_state.rangos_detallados[category]:
+                for score, desc in st.session_state.rangos_detallados[category][question].items():
+                    if f"{score}: {desc}" == selected_option_desc:
+                        score_found = score
+                        break
+            edited_df.loc[index, 'Puntuación'] = score_found if score_found is not None else 0 # Default to 0 if no match
 
-                    selected_option = st.radio(
-                        question,
-                        options=option_values,
-                        format_func=lambda x: options[x],
-                        index=default_index,
-                        key=unique_key
-                    )
-                    st.session_state.evaluations[(category, question, st.session_state.selected_eval_target)] = selected_option
+        st.session_state.evaluations_df = edited_df # Update the session state DataFrame
 
-            st.markdown("---")
-
-            # --- Display Consolidated Evaluation Matrix ---
-            st.subheader("Matriz Consolidada de Evaluaciones")
-
-            # Collect all distinct targets that have been evaluated manually or have technical metrics
-            all_targets_with_data = set()
-            if target_column_for_evaluation in st.session_state.df.columns:
-                 all_targets_with_data.update(st.session_state.df[target_column_for_evaluation].dropna().unique().tolist())
-
-            # Add targets from manual evaluations
-            all_targets_with_data.update([k[2] for k in st.session_state.evaluations.keys()])
-
-            matrix_targets = sorted(list(all_targets_with_data))
-
-            # Prepare data for the matrix
-            matrix_data = []
-            categories_order = ["Calidad", "Oportunidad", "Precio", "Postventa", "Desempeño técnico"] # Define a fixed order for categories
-
-            for category in categories_order:
-                for question in rangos_detallados[category].keys():
-                    row = {"Categoría": category, "Pregunta": question}
-                    for target in matrix_targets:
-                        if category == "Desempeño técnico":
-                            # Get the value for the specific target from the pre-calculated series
-                            metric_series = st.session_state.pre_calculated_metrics.get(
-                                question.split(" ")[0].lower().replace("disponibilidad", "disponibilidad").replace("mttr", "mttr").replace("mtbf", "mtbf").replace("rendimiento", "rendimiento"),
-                                pd.Series()
-                            )
-                            value = metric_series.get(target, "N/A") # Default to "N/A" if not available
-                        else:
-                            # Get the value for the specific target and question from manual evaluations
-                            value = st.session_state.evaluations.get((category, question, target), None)
-                        row[target] = value
-                    matrix_data.append(row)
-
-            if matrix_data:
-                evaluation_matrix_df = pd.DataFrame(matrix_data)
-
-                # Identify columns that represent targets (i.e., not 'Categoría' or 'Pregunta')
-                data_columns = [col for col in evaluation_matrix_df.columns if col not in ["Categoría", "Pregunta"]]
-
-                if not data_columns:
-                    st.info("No hay datos de evaluación para mostrar. Por favor, realiza algunas evaluaciones manuales o verifica la carga de datos.")
+        if st.button("Calcular Evaluación"):
+            if not st.session_state.evaluations_df['Puntuación'].isnull().any():
+                total_score = st.session_state.evaluations_df['Puntuación'].sum()
+                num_questions = len(st.session_state.evaluations_df)
+                
+                # Calculate the maximum possible score
+                max_score = sum(max(q_opts.keys()) for category, questions in rangos_detallados.items() for q_name, q_opts in questions.items())
+                
+                # Calculate the percentage based on the maximum possible score (2 points per question)
+                # Max score if all answered with 2 points
+                max_possible_per_question_score = 2
+                theoretical_max_score = num_questions * max_possible_per_question_score
+                
+                if theoretical_max_score > 0:
+                    percentage_score = (total_score / theoretical_max_score) * 100
                 else:
-                    st.dataframe(evaluation_matrix_df)
+                    percentage_score = 0
+                
+                st.success(f"Evaluación Completada:")
+                st.write(f"**Puntuación Total:** {total_score} puntos")
+                st.write(f"**Porcentaje de Cumplimiento (basado en máximo de 2 puntos por pregunta):** {percentage_score:.2f}%")
 
-                    # Calculate total scores and average scores for manual evaluations
-                    score_rows = []
-                    for target in data_columns:
-                        total_score = 0
-                        num_questions = 0
+                # Optional: Display the scores per category
+                st.markdown("### Puntuación por Categoría")
+                category_scores = st.session_state.evaluations_df.groupby('Categoría')['Puntuación'].sum()
+                
+                # Also calculate max possible score per category
+                max_category_scores = {}
+                for category, questions in rangos_detallados.items():
+                    max_category_scores[category] = len(questions) * max_possible_per_question_score
 
-                        for category in ["Calidad", "Oportunidad", "Precio", "Postventa"]: # Only manual categories
-                            for question in rangos_detallados[category].keys():
-                                score = st.session_state.evaluations.get((category, question, target))
-                                if score is not None:
-                                    total_score += score
-                                    num_questions += 1
-
-                        avg_score = total_score / num_questions if num_questions > 0 else 0
-                        score_rows.append({"Categoría": "Total Puntuación Manual", "Pregunta": "", target: total_score})
-                        score_rows.append({"Categoría": "Puntuación Promedio Manual", "Pregunta": "", target: f"{avg_score:.2f}"})
-
-                    if score_rows:
-                        score_df = pd.DataFrame(score_rows)
-                        # Concatenate and display the final matrix with scores
-                        final_display_df = pd.concat([evaluation_matrix_df, score_df], ignore_index=True)
-                        st.dataframe(final_display_df.set_index(["Categoría", "Pregunta"]))
-                    else:
-                        st.info("No hay datos suficientes para calcular las puntuaciones manuales totales o promedio.")
+                category_summary = []
+                for category, score in category_scores.items():
+                    max_cat_score = max_category_scores.get(category, 0)
+                    percentage = (score / max_cat_score) * 100 if max_cat_score > 0 else 0
+                    category_summary.append({
+                        "Categoría": category,
+                        "Puntuación Obtenida": score,
+                        "Puntuación Máxima Posible": max_cat_score,
+                        "Porcentaje de Cumplimiento": f"{percentage:.2f}%"
+                    })
+                st.dataframe(pd.DataFrame(category_summary), hide_index=True)
 
             else:
-                st.info("No hay datos de evaluación para mostrar. Por favor, realiza algunas evaluaciones manuales o verifica la carga de datos.")
+                st.warning("Por favor, asegúrate de responder todas las preguntas antes de calcular la evaluación.")
 
-elif st.session_state.page == "Análisis General":
-    st.title("📈 Análisis General")
-    st.markdown("""
-        Explora visualizaciones y desgloses de datos clave como costos y cantidad de avisos por diferentes dimensiones.
-    """)
-    if st.session_state.df is None or st.session_state.df.empty:
-        st.warning("Por favor, carga el archivo `BASE DE DATOS.XLSX` en la sección 'Inicio y Carga de Datos' para acceder a los análisis.")
-    else:
-        analysis_app = AnalysisApp(st.session_state.df)
-        analysis_app.display_analysis()
+    elif selected_page == "Análisis General":
+        st.title("📊 Análisis General")
+        if 'df_consolidado' in st.session_state and not st.session_state['df_consolidado'].empty:
+            app = AnalysisApp(st.session_state['df_consolidado'])
+            app.display_analysis()
+        else:
+            st.info("Por favor, carga los datos primero en la sección 'Carga de Datos' para realizar un análisis.")
+
+if __name__ == "__main__":
+    main()
