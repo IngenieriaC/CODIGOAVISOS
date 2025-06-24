@@ -1,5 +1,7 @@
 streamlit>=1.10.0
 pandas
-openpyxl
+streamlit
 matplotlib
 seaborn
+numpy
+xlsxwriter
