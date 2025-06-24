@@ -781,84 +781,80 @@ class CostosAvisosApp:
 
 # --- EVALUATION APP FOR STREAMLIT ---
 class EvaluacionProveedoresApp:
+    
+class EvaluacionProveedoresApp:
     def __init__(self, df):
         self.df = df
-        # Initialize session state for this class if not already done
-        if 'all_evaluation_widgets_map' not in st.session_state:
-            st.session_state['all_evaluation_widgets_map'] = {}
-        if 'evaluation_page_providers' not in st.session_state: # Page for providers
-            st.session_state['evaluation_page_providers'] = 0
-        if 'current_service_type_metrics' not in st.session_state:
-            st.session_state['current_service_type_metrics'] = {} # Metrics now store per-provider for selected service type
-        if 'all_service_providers' not in st.session_state:
-            st.session_state['all_service_providers'] = []
-        if 'selected_service_type' not in st.session_state:
-             st.session_state['selected_service_type'] = "Seleccionar..." # Initial dummy value
-        if 'evaluation_mode' not in st.session_state:
-            st.session_state['evaluation_mode'] = 'by_service_type' # Default mode
-        if 'selected_provider_eval' not in st.session_state:
-            st.session_state['selected_provider_eval'] = "Seleccionar..."
-        if 'evaluation_page_service_types_for_provider' not in st.session_state:
-            st.session_state['evaluation_page_service_types_for_provider'] = 0
-        if 'current_provider_service_type_metrics' not in st.session_state:
-            st.session_state['current_provider_service_type_metrics'] = {}
+        # Define evaluation questions and options
+        self.questions = {
+            "Calidad del Servicio/Producto": ["Excelente", "Bueno", "Regular", "Malo"],
+            "Tiempo de Respuesta": ["Muy Rápido", "Rápido", "Normal", "Lento"],
+            "Comunicación": ["Excelente", "Buena", "Regular", "Mala"],
+            "Cumplimiento de Plazos": ["Siempre", "Casi Siempre", "A Veces", "Raramente"],
+            "Relación Calidad-Precio": ["Excelente", "Buena", "Regular", "Mala"],
+        }
+        self.scores = {
+            "Excelente": 5, "Muy Rápido": 5, "Siempre": 5,
+            "Bueno": 4, "Rápido": 4, "Casi Siempre": 4,
+            "Normal": 3, "A Veces": 3, "Regular": 3,
+            "Lento": 2, "Raramente": 2, "Mala": 2,
+            "Malo": 1
+        }
 
+    def display_evaluation_dashboard(self):
+        st.subheader("📊 Evaluación de Proveedores")
 
-    def display_evaluation_form(self):
-        st.title("Evaluación de Proveedores")
+        # Get unique suppliers for selection
+        proveedores = self.df['PROVEEDOR'].unique()
+        selected_proveedor = st.selectbox("Selecciona un proveedor para evaluar:", proveedores)
 
-        st.sidebar.markdown("---")
-        st.sidebar.header("Modo de Evaluación")
-        evaluation_mode = st.sidebar.radio(
-            "Selecciona cómo quieres evaluar:",
-            options=['Por Tipo de Servicio', 'Por Proveedor'],
-            key='evaluation_mode_selector',
-            index=0 if st.session_state['evaluation_mode'] == 'by_service_type' else 1
-        )
+        st.markdown("---")
+        st.write(f"**Evaluando a:** {selected_proveedor}")
 
-        # Update session state based on radio button selection
-        new_mode = 'by_service_type' if evaluation_mode == 'Por Tipo de Servicio' else 'by_provider'
-        if st.session_state['evaluation_mode'] != new_mode:
-            st.session_state['evaluation_mode'] = new_mode
-            st.session_state['evaluation_page_providers'] = 0 # Reset page
-            st.session_state['selected_service_type'] = "Seleccionar..." # Reset service type
-            st.session_state['selected_provider_eval'] = "Seleccionar..." # Reset provider
-            st.session_state['evaluation_page_service_types_for_provider'] = 0
-            st.rerun()
+        if selected_proveedor:
+            # Initialize a dictionary to store selected answers
+            answers = {}
+            for i, (question, options) in enumerate(self.questions.items()):
+                # Create two columns for each question-answer pair
+                col1, col2 = st.columns([0.6, 0.4]) # Adjust ratios as needed
 
-        if st.session_state['evaluation_mode'] == 'by_service_type':
-            self._display_evaluation_by_service_type()
-        elif st.session_state['evaluation_mode'] == 'by_provider':
-            self._display_evaluation_by_provider()
+                with col1:
+                    st.write(f"**{question}:**")
+                with col2:
+                    answers[question] = st.radio(f"Selecciona una opción para {question}", options, key=f"q_{i}", horizontal=True)
 
+            if st.button("Calcular Evaluación"):
+                total_score = 0
+                max_possible_score = len(self.questions) * 5  # 5 is the max score per question
 
-    def _display_evaluation_by_service_type(self):
-        st.subheader("Evaluación por Tipo de Servicio")
-        
-        all_service_types_eval = sorted(self.df['TIPO DE SERVICIO'].dropna().unique().tolist())
-        service_type_options = ["Seleccionar..."] + all_service_types_eval
-        
-        try:
-            current_index = service_type_options.index(st.session_state['selected_service_type'])
-        except ValueError:
-            current_index = 0
+                st.write("---")
+                st.subheader("Resultados de la Evaluación:")
 
-        selected_service_type_eval = st.sidebar.selectbox(
-            "Selecciona Tipo de Servicio para Evaluar:",
-            options=service_type_options,
-            index=current_index,
-            key='eval_service_type_selector_inner'
-        )
+                for question, answer in answers.items():
+                    score = self.scores.get(answer, 0)
+                    total_score += score
+                    st.write(f"- **{question}:** {answer} (Puntuación: {score})")
 
-        if st.session_state['selected_service_type'] != selected_service_type_eval:
-            st.session_state['selected_service_type'] = selected_service_type_eval
-            st.session_state['evaluation_page_providers'] = 0
-            st.session_state['all_evaluation_widgets_map'] = {} # Clear map on service type change
-            st.rerun()
+                # Calculate percentage score
+                percentage_score = (total_score / max_possible_score) * 100
 
-        if st.session_state['selected_service_type'] == "Seleccionar...":
-            st.info("Por favor, selecciona un 'Tipo de Servicio' en la barra lateral para comenzar la evaluación.")
-            return
+                st.write(f"---")
+                st.markdown(f"**Puntuación Total:** {total_score} / {max_possible_score}")
+                st.markdown(f"**Porcentaje de Evaluación:** {percentage_score:.2f}%")
+
+                # Provide a qualitative assessment based on the percentage
+                if percentage_score >= 90:
+                    st.success("¡Excelente rendimiento del proveedor! 🎉")
+                elif percentage_score >= 70:
+                    st.info("Buen rendimiento del proveedor. 👍")
+                elif percentage_score >= 50:
+                    st.warning("Rendimiento regular del proveedor. Requiere atención. ⚠️")
+                else:
+                    st.error("Rendimiento deficiente del proveedor. Necesita mejora urgente. 🛑")
+
+        else:
+            st.warning("Por favor, selecciona un proveedor para comenzar la evaluación.")
+
 
         df_filtered_by_service = self.df[self.df['TIPO DE SERVICIO'] == st.session_state['selected_service_type']]
         
