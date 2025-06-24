@@ -14,7 +14,7 @@ st.set_page_config(
     page_title="Gerencia de Gestión Administrativa - Sura",
     layout="wide",
     initial_sidebar_state="expanded",
-    # Icono de la página (opcional, puedes cambiar '📈' por el tuyo)
+    # Icono de la página (opcional, puedes cambiar '📈' por tu icono)
     # Abre este enlace para ver más emojis: https://www.webfx.com/tools/emoji-cheat-sheet/
 )
 
@@ -76,25 +76,6 @@ st.markdown("""
 """)
 # Set a nice style for plots
 sns.set_style('whitegrid')
-
-# This section of st.set_page_config and st.markdown is a duplicate from above
-# and has been removed in the final corrected code.
-# --- Configuración de la página (temática Sura) ---
-# st.set_page_config(
-#     page_title="Gerencia de Gestión Administrativa - Sura",
-#     layout="wide",
-#     initial_sidebar_state="expanded",
-# )
-
-# Estilos CSS para ambientar en amarillo, blanco y azul rey
-# st.markdown(
-#     """
-#     <style>
-#     ... (duplicate styles removed for brevity) ...
-#     </style>
-#     """,
-#     unsafe_allow_html=True
-# )
 
 # --- Función de carga & unión (optimizada para Streamlit) ---
 @st.cache_data
@@ -306,6 +287,7 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
     return df
 
 # --- DEFINICIÓN DE PREGUNTAS PARA EVALUACIÓN ---
+# These are the questions with their categories and expected score types.
 preguntas = [
     ("Calidad", "¿Las soluciones propuestas son coherentes con el diagnóstico y causa raíz del problema?", "2,1,0,-1"),
     ("Calidad", "¿El trabajo entregado tiene materiales nuevos, originales y de marcas reconocidas?", "2,1,0,-1"),
@@ -335,6 +317,7 @@ preguntas = [
 ]
 
 # --- Definición de las preguntas y rangos DETALLADOS ---
+# This dictionary maps categories, questions, and scores to detailed descriptions.
 rangos_detallados = {
     "Calidad": {
         "¿Las soluciones propuestas son coherentes con el diagnóstico y causa raíz del problema?": {
@@ -425,13 +408,13 @@ rangos_detallados = {
             0: "Igual al promedio de mercado",
             -1: "Por encima del promedio de mercado"
         },
-        "Facilita llegar a una negociación (precios)": {
+        "Facilita llegar a una negociación (precios)": { # This question is in rangos_detallados but not in 'preguntas' list. Keep for now.
             2: "Siempre está dispuesto a negociar de manera flexible",
             1: "En general muestra disposición al diálogo",
             0: "Ocasionalmente permite negociar",
             -1: "Poco o nada dispuesto a negociar"
         },
-        "Pone en consideración contratos y trabajos adjudicados en el último periodo de tiempo": {
+        "Pone en consideración contratos y trabajos adjudicados en el último periodo de tiempo": { # This question is in rangos_detallados but not in 'preguntas' list. Keep for now.
             2: "Siempre toma en cuenta la relación comercial previa",
             1: "Generalmente considera trabajos anteriores",
             0: "Solo ocasionalmente lo toma en cuenta",
@@ -603,16 +586,22 @@ class CostosAvisosApp:
 
         with col2_filters:
             available_months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
-            # Translate months for display
+            # Map original English month names to Spanish for display
             meses_espanol = {
                 'January': 'Enero', 'February': 'Febrero', 'March': 'Marzo', 'April': 'Abril',
                 'May': 'Mayo', 'June': 'Junio', 'July': 'Julio', 'August': 'Agosto',
                 'September': 'Septiembre', 'October': 'Octubre', 'November': 'Noviembre',
                 'December': 'Diciembre'
             }
-            available_months_es = [meses_espanol[m] for m in available_months]
-            selected_months_es = st.multiselect("Filtrar por Mes:", available_months_es, default=available_months_es)
-            selected_months = [m for m_es, m in meses_espanol.items() if m_es in [k for k, v in meses_espanol.items() if v in selected_months_es]]
+            # Create a list of Spanish month names to display in the multiselect
+            available_months_display = [meses_espanol[m] for m in available_months]
+            
+            # Get selected month names in Spanish
+            selected_months_display = st.multiselect("Filtrar por Mes:", available_months_display, default=available_months_display)
+            
+            # Convert selected Spanish month names back to English for filtering
+            selected_months = [eng_month for eng_month, sp_month in meses_espanol.items() if sp_month in selected_months_display]
+
 
         filtered_df = self.df[
             (self.df['año'].isin(selected_years)) &
@@ -706,23 +695,10 @@ class CostosAvisosApp:
 
 # --- EVALUACIÓN PROVEEDORES APP ---
 class EvaluacionProveedoresApp:
-    def __init__(self, df):
+    def __init__(self, df, preguntas_evaluacion, rangos_detallados_evaluacion):
         self.df = df
-        # Define evaluation questions and options
-        self.questions = {
-            "Calidad del Servicio/Producto": ["Excelente", "Bueno", "Regular", "Malo"],
-            "Tiempo de Respuesta": ["Muy Rápido", "Rápido", "Normal", "Lento"],
-            "Comunicación": ["Excelente", "Buena", "Regular", "Mala"],
-            "Cumplimiento de Plazos": ["Siempre", "Casi Siempre", "A Veces", "Raramente"],
-            "Relación Calidad-Precio": ["Excelente", "Buena", "Regular", "Mala"],
-        }
-        self.scores = {
-            "Excelente": 5, "Muy Rápido": 5, "Siempre": 5,
-            "Bueno": 4, "Rápido": 4, "Casi Siempre": 4,
-            "Normal": 3, "A Veces": 3, "Regular": 3,
-            "Lento": 2, "Raramente": 2, "Mala": 2,
-            "Malo": 1
-        }
+        self.preguntas_evaluacion = preguntas_evaluacion
+        self.rangos_detallados_evaluacion = rangos_detallados_evaluacion
 
     def display_evaluation_dashboard(self):
         st.subheader("📊 Evaluación de Proveedores")
@@ -735,34 +711,138 @@ class EvaluacionProveedoresApp:
         st.write(f"**Evaluando a:** {selected_proveedor}")
 
         if selected_proveedor:
-            # Initialize a dictionary to store selected answers
-            answers = {}
-            for i, (question, options) in enumerate(self.questions.items()):
-                # Create two columns for each question-answer pair
-                col1, col2 = st.columns([0.6, 0.4]) # Adjust ratios as needed
+            # Initialize a dictionary to store selected answers and scores
+            answers_and_scores = {}
+            total_score = 0
+            max_possible_score_manual = 0 # For manual questions with 2,1,0,-1
+            
+            st.subheader("Evaluación Manual")
+            # Group questions by category for better display
+            questions_by_category = {}
+            for category, question_text, score_type in self.preguntas_evaluacion:
+                if score_type != "auto": # Only process manual questions here
+                    if category not in questions_by_category:
+                        questions_by_category[category] = []
+                    questions_by_category[category].append((question_text, score_type))
 
-                with col1:
-                    st.write(f"**{question}:**")
-                with col2:
-                    answers[question] = st.radio(f"Selecciona una opción para {question}", options, key=f"q_{i}", horizontal=True)
+            for category, questions_list in questions_by_category.items():
+                if category == "Desempeño técnico": # Skip technical performance for manual evaluation
+                    continue
+                st.markdown(f"### {category}")
+                for i, (question_text, score_type) in enumerate(questions_list):
+                    # Get options for this specific question from rangos_detallados
+                    options_dict = self.rangos_detallados_evaluacion.get(category, {}).get(question_text, {})
+                    if not options_dict:
+                        st.warning(f"No se encontraron rangos detallados para la pregunta: '{question_text}' en la categoría '{category}'.")
+                        continue
 
-            if st.button("Calcular Evaluación"):
-                total_score = 0
-                max_possible_score = len(self.questions) * 5  # 5 is the max score per question
+                    # Sort options by score for display consistency (e.g., 2, 1, 0, -1)
+                    sorted_scores = sorted(options_dict.keys(), reverse=True)
+                    display_options = [f"{score} - {options_dict[score]}" for score in sorted_scores]
+                    
+                    col1, col2 = st.columns([0.6, 0.4])
+
+                    with col1:
+                        st.write(f"**{question_text}:**")
+                    with col2:
+                        selected_option_display = st.radio(
+                            f"Selecciona una opción para '{question_text}'",
+                            display_options,
+                            key=f"{category}_{question_text.replace(' ', '_').replace('?', '')}",
+                            horizontal=False # Vertical radio buttons for better readability with long descriptions
+                        )
+                        # Extract the score from the selected display option (e.g., "2 - Total coherencia" -> 2)
+                        selected_score = int(selected_option_display.split(' - ')[0])
+                        answers_and_scores[question_text] = selected_score
+                        max_possible_score_manual += max(options_dict.keys()) # Sum the max possible score for each question
+
+            st.markdown("---")
+            st.subheader("Evaluación Automática (Desempeño Técnico)")
+
+            # Filter data for the selected provider for automatic calculations
+            provider_df = self.df[self.df['PROVEEDOR'] == selected_proveedor]
+
+            if not provider_df.empty:
+                # Calculate indicators for the selected provider
+                cnt, cost, mttr_series, mtbf_series, disp_series, rend_series = calcular_indicadores(provider_df, group_col='PROVEEDOR')
+
+                # Get the single value for the selected provider (since we grouped by PROVEEDOR, there should be one entry)
+                # Use .iloc[0] or .item() if you are sure there's only one value
+                provider_mttr = mttr_series.iloc[0] if not mttr_series.empty else np.nan
+                provider_mtbf = mtbf_series.iloc[0] if not mtbf_series.empty else np.nan
+                provider_disp = disp_series.iloc[0] if not disp_series.empty else np.nan
+                provider_rend = rend_series.iloc[0] if not rend_series.empty else 'No Aplica'
+
+                # Evaluate "Desempeño técnico" questions based on calculated indicators
+                st.write(f"- **Disponibilidad promedio (%):** {provider_disp:.2f}%")
+                st.write(f"- **MTTR promedio (hrs):** {provider_mttr:.2f} hrs")
+                st.write(f"- **MTBF promedio (hrs):** {provider_mtbf:.2f} hrs")
+                st.write(f"- **Rendimiento promedio equipos:** {provider_rend}")
+
+                # Score the automatic questions based on rangos_detallados
+                for q_category, q_text, q_type in self.preguntas_evaluacion:
+                    if q_type == "auto" and q_category == "Desempeño técnico":
+                        options_dict = self.rangos_detallados_evaluacion.get(q_category, {}).get(q_text, {})
+                        
+                        score_for_auto_question = 0
+                        max_score_for_auto_question = max(options_dict.keys()) if options_dict else 0
+
+                        if q_text == "Disponibilidad promedio (%)":
+                            for score_val, desc in options_dict.items():
+                                if eval(f"{provider_disp} {desc.replace('Disponibilidad', '')}"):
+                                    score_for_auto_question = score_val
+                                    break
+                        elif q_text == "MTTR promedio (hrs)":
+                            for score_val, desc in options_dict.items():
+                                if eval(f"{provider_mttr} {desc.replace('MTTR', '')}"):
+                                    score_for_auto_question = score_val
+                                    break
+                        elif q_text == "MTBF promedio (hrs)":
+                            for score_val, desc in options_dict.items():
+                                if eval(f"{provider_mtbf} {desc.replace('MTBF', '')}"):
+                                    score_for_auto_question = score_val
+                                    break
+                        elif q_text == "Rendimiento promedio equipos":
+                            for score_val, desc in options_dict.items():
+                                # Extract the performance level from the description (e.g., 'Alto', 'Medio', 'Bajo')
+                                desc_level = desc.split("'")[1]
+                                if provider_rend == desc_level:
+                                    score_for_auto_question = score_val
+                                    break
+                        
+                        answers_and_scores[q_text] = score_for_auto_question
+                        total_score += score_for_auto_question
+                        max_possible_score_manual += max_score_for_auto_question # Add to the total max score
+
+            else:
+                st.info("No hay datos disponibles para el desempeño técnico de este proveedor.")
+
+
+            if st.button("Calcular Evaluación Final"):
+                # Sum scores from both manual and automatic evaluations
+                final_total_score = sum(answers_and_scores.values())
+                
+                # Calculate total possible score including auto-calculated parts
+                # This assumes 'auto' questions also have a max score in their options
+                total_max_score = 0
+                for category, question_text, score_type in self.preguntas_evaluacion:
+                    if category in self.rangos_detallados_evaluacion and question_text in self.rangos_detallados_evaluacion[category]:
+                        options_dict = self.rangos_detallados_evaluacion[category][question_text]
+                        if options_dict:
+                            total_max_score += max(options_dict.keys())
+
 
                 st.write("---")
-                st.subheader("Resultados de la Evaluación:")
+                st.subheader("Resultados de la Evaluación Final:")
 
-                for question, answer in answers.items():
-                    score = self.scores.get(answer, 0)
-                    total_score += score
-                    st.write(f"- **{question}:** {answer} (Puntuación: {score})")
+                for question, score in answers_and_scores.items():
+                    st.write(f"- **{question}:** Puntuación: {score}")
 
                 # Calculate percentage score
-                percentage_score = (total_score / max_possible_score) * 100
+                percentage_score = (final_total_score / total_max_score) * 100 if total_max_score > 0 else 0
 
                 st.write(f"---")
-                st.markdown(f"**Puntuación Total:** {total_score} / {max_possible_score}")
+                st.markdown(f"**Puntuación Total Final:** {final_total_score} / {total_max_score}")
                 st.markdown(f"**Porcentaje de Evaluación:** {percentage_score:.2f}%")
 
                 # Provide a qualitative assessment based on the percentage
@@ -814,7 +894,8 @@ if st.session_state['page'] == 'cargar_datos':
             st.dataframe(df.head())
             st.info("Ahora puedes navegar a las secciones de análisis y evaluación desde el menú lateral.")
             # Automatically navigate to Costos y Avisos for initial display
-            # navigate_to('costos_avisos') # This function does not exist
+            st.session_state['page'] = 'costos_avisos' # Correct way to change page
+            st.rerun() # Rerun to display the new page immediately
         except Exception as e:
             st.error(f"Hubo un error al procesar el archivo: {e}")
             st.warning("Asegúrate de que el archivo Excel contenga las hojas correctas y los formatos esperados.")
@@ -828,7 +909,8 @@ elif st.session_state['page'] == 'costos_avisos':
 
 elif st.session_state['page'] == 'evaluacion':
     if 'df' in st.session_state and st.session_state['df'] is not None:
-        eval_app = EvaluacionProveedoresApp(st.session_state['df'])
+        # Pass the global `preguntas` and `rangos_detallados` to the evaluation app
+        eval_app = EvaluacionProveedoresApp(st.session_state['df'], preguntas, rangos_detallados)
         eval_app.display_evaluation_dashboard()
     else:
         st.warning("Por favor, carga los datos primero desde la sección 'Cargar Datos'.")
