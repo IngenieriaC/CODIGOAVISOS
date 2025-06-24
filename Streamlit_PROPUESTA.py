@@ -84,8 +84,15 @@ def normalize_column_name(col_name):
     """
     Normaliza el nombre de una columna para que sea compatible con Python y más fácil de usar.
     Convierte a minúsculas, reemplaza espacios y caracteres especiales por guiones bajos.
+    También intenta ser más flexible con "equipo".
     """
-    return re.sub(r'[^a-z0-9_]+', '', col_name.strip().lower().replace(' ', '_'))
+    normalized = re.sub(r'[^a-z0-9_]+', '', col_name.strip().lower().replace(' ', '_'))
+    
+    # Casos específicos para "equipo"
+    if 'equipo' in normalized:
+        return 'equipo'
+    
+    return normalized
 
 # --- Función de carga & unión (optimizada para Streamlit) ---
 @st.cache_data
@@ -119,6 +126,7 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
     for name, df_temp in all_raw_dfs.items():
         df_temp.columns = [normalize_column_name(col) for col in df_temp.columns]
         normalized_dfs[name] = df_temp
+        st.write(f"Columnas normalizadas para {name.upper()}: {normalized_dfs[name].columns.tolist()}") # Debugging print
 
     iw29_n = normalized_dfs['iw29']
     iw39_n = normalized_dfs['iw39']
@@ -135,40 +143,34 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
     df_final = pd.merge(df_final, iw39_subset_for_merge, on="aviso", how="left")
 
     # 2. Fusionar con IW65 (también por 'aviso').
-    # No se espera que IW65 tenga una columna 'equipo' que cause conflicto.
     df_final = pd.merge(df_final, iw65_n, on="aviso", how="left", suffixes=('', '_iw65'))
-    # Limpiar cualquier columna de IW65 que pueda haber recibido un sufijo si ya existía en df_final.
     for col in iw65_n.columns:
         if col != 'aviso' and f'{col}_iw65' in df_final.columns and col in df_final.columns:
             df_final.drop(columns=f'{col}_iw65', errors='ignore', inplace=True)
-
-    # En este punto, 'df_final' debe contener 'equipo' de iw29_n y 'total_general_real' de iw39_n.
 
     # 3. Preparar y fusionar IH08: Renombrar 'texto' a 'texto_equipo' ANTES de la fusión.
     ih08_for_merge = ih08_n.copy()
     if 'texto' in ih08_for_merge.columns:
         ih08_for_merge.rename(columns={'texto': 'texto_equipo'}, inplace=True)
     
-    ih08_cols_to_merge = [
+    ih08_cols_to_merge_base = [
         "equipo", "inicgarantia_prov", "fin_garantia_prov", "indicador_abc",
         "denominacion_de_objeto_tecnico", "cl_objeto_tecnico"
     ]
-    if 'texto_equipo' in ih08_for_merge.columns: # Añadir la columna renombrada si existe
-        ih08_cols_to_merge.append('texto_equipo')
+    if 'texto_equipo' in ih08_for_merge.columns:
+        ih08_cols_to_merge_base.append('texto_equipo')
 
-    # Filtrar las columnas que realmente existen en ih08_for_merge
-    existing_ih08_cols = [col for col in ih08_cols_to_merge if col in ih08_for_merge.columns]
+    existing_ih08_cols = [col for col in ih08_cols_to_merge_base if col in ih08_for_merge.columns]
 
-    # Verificación crítica: Asegurarse que 'equipo' exista en ambos DataFrames antes de esta fusión
+    # **CRÍTICO:** Verificar que 'equipo' esté en IH08_for_merge y df_final antes de la fusión.
     if 'equipo' not in df_final.columns:
-        st.error("Error crítico: La columna 'equipo' no se encontró en el DataFrame principal antes de la fusión con IH08. Por favor, verifique el archivo IW29 original.")
-        raise KeyError("'equipo' column missing in main DataFrame.")
+        st.error("Error crítico: La columna 'equipo' no se encontró en el DataFrame principal antes de la fusión con IH08. Por favor, verifica el archivo IW29 original y sus nombres de columna.")
+        raise KeyError("'equipo' column missing in main DataFrame for IH08 merge.")
     if 'equipo' not in existing_ih08_cols:
-        st.error("Error: La columna 'equipo' es necesaria en IH08 para la fusión.")
-        raise KeyError("'equipo' column missing in IH08 after normalization.")
+        st.error("Error crítico: La columna 'equipo' no se encontró en IH08 después de la normalización. Por favor, verifica el archivo IH08 original y sus nombres de columna.")
+        raise KeyError("'equipo' column missing in IH08 after normalization for merge.")
 
     df_final = pd.merge(df_final, ih08_for_merge[existing_ih08_cols], on="equipo", how="left", suffixes=('', '_ih08_suffix'))
-    # Limpiar posibles columnas con sufijos de IH08 si entran en conflicto con columnas existentes.
     for col in existing_ih08_cols:
         if col != 'equipo' and f'{col}_ih08_suffix' in df_final.columns and col in df_final.columns:
             df_final.drop(columns=f'{col}_ih08_suffix', errors='ignore', inplace=True)
@@ -179,42 +181,36 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
     zpm015_cols_to_merge = ["equipo", "tipo_de_servicio"]
     existing_zpm015_cols = [col for col in zpm015_cols_to_merge if col in zpm015_for_merge.columns]
 
+    # **CRÍTICO:** Verificar que 'equipo' esté en ZPM015_for_merge antes de la fusión.
     if 'equipo' not in existing_zpm015_cols:
-        st.error("Error: La columna 'equipo' es necesaria en ZPM015 para la fusión.")
-        raise KeyError("'equipo' column missing in ZPM015 after normalization.")
+        st.error("Error crítico: La columna 'equipo' no se encontró en ZPM015 después de la normalización. Por favor, verifica el archivo ZPM015 original y sus nombres de columna.")
+        raise KeyError("'equipo' column missing in ZPM015 after normalization for merge.")
 
     df_final = pd.merge(df_final, zpm015_for_merge[existing_zpm015_cols], on="equipo", how="left", suffixes=('', '_zpm015_suffix'))
-    # Limpiar posibles columnas con sufijos de ZPM015.
     for col in existing_zpm015_cols:
         if col != 'equipo' and f'{col}_zpm015_suffix' in df_final.columns and col in df_final.columns:
             df_final.drop(columns=f'{col}_zpm015_suffix', errors='ignore', inplace=True)
 
 
     # Renombrado final para consistencia de salida
-    # Renombrar 'total_general_real' a 'costes_tot_reales' (si iw39 la contenía)
     if 'total_general_real' in df_final.columns:
         df_final.rename(columns={'total_general_real': 'costes_tot_reales'}, inplace=True)
     
-    # Renombrar 'denominacion_ejecutante' a 'proveedor' (si iw29 la contenía)
     if 'denominacion_ejecutante' in df_final.columns:
         df_final.rename(columns={'denominacion_ejecutante': 'proveedor'}, inplace=True)
     
-    # Definir las columnas finales deseadas (todas normalizadas y correctamente nombradas)
     columnas_finales_deseables = [
         "aviso", "orden", "fecha_de_aviso", "codigo_postal", "status_del_sistema",
         "descripcion", "ubicacion_tecnica", "indicador", "equipo",
-        "denominacion_de_objeto_tecnico", "proveedor", # 'proveedor' ahora correctamente establecido
-        "duracion_de_parada", "centro_de_coste", "costes_tot_reales", # 'costes_tot_reales' ahora correctamente establecido
-        "inicgarantia_prov", "fin_garantia_prov", "texto_equipo", # 'texto_equipo' ahora correctamente establecido
+        "denominacion_de_objeto_tecnico", "proveedor",
+        "duracion_de_parada", "centro_de_coste", "costes_tot_reales",
+        "inicgarantia_prov", "fin_garantia_prov", "texto_equipo",
         "indicador_abc", "texto_codigo_accion", "texto_de_accion",
         "texto_grupo_accion", "tipo_de_servicio",
         "clase_de_actividad", "puesto_de_trabajo"
     ]
 
-    # Filtrar solo las columnas que realmente existen en df_final
     final_df = df_final[[col for col in columnas_finales_deseables if col in df_final.columns]].copy()
-
-    # Eliminar cualquier columna duplicada restante que pueda haber pasado desapercibida (ej. si los sufijos no atraparon todo)
     final_df = final_df.loc[:,~final_df.columns.duplicated()].copy()
 
     return final_df
