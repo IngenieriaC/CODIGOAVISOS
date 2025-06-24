@@ -69,7 +69,7 @@ st.markdown(
 # --- Bienvenida y encabezado ---
 st.title("¡Hola, usuario Sura! 👋")
 st.markdown("---")
-st.header("Proyecto de **Gerencia de Gestión Administrativa** en Ingeniería Clínica")
+st.header("Proyecto de **Gestión Administrativa** en Ingeniería Clínica")
 st.markdown("""
     Aquí podrás **analizar y gestionar los datos de avisos** para optimizar los procesos. Creado por Naida López Aprendiz Universitaria.
 """)
