@@ -1276,164 +1276,123 @@ class EvaluacionProveedoresApp:
         else:
             st.info("No hay métricas de desempeño disponibles por tipo de servicio para este proveedor.")
 
-
-    def generar_resumen_evaluacion(self, df_filtered, identifier, mode):
+def generar_resumen_evaluacion(self, df_filtered, selected_item, mode='by_provider'):
         st.subheader("Generando resumen de evaluación...")
 
-        if not st.session_state.get('all_evaluation_widgets_map'):
-            st.warning("No hay evaluaciones para resumir. Selecciona un modo de evaluación y completa las evaluaciones.")
-            return
+        # Initialize total_scores_by_provider to an empty dictionary
+        # This resolves the UnboundLocalError if 'mode' is not 'by_provider'
+        total_scores_by_provider = {} # Line 1307
 
-        summary_data = []
-        quantitative_metrics_data = {
-            'Identificador de Evaluación': identifier,
-            'Tipo de Elemento Evaluado': [],
-            'Elemento Evaluado (Nombre)': [], # Could be Provider or Service Type
-            'Número de Avisos': [],
-            'Costo Total Real': [],
-            'MTTR Promedio (hrs)': [],
-            'MTBF Promedio (hrs)': [],
-            'Disponibilidad Promedio (%)': [],
-            'Rendimiento': []
-        }
+        if mode == 'by_provider':
+            st.write(f"### Resumen de Calificación por Pregunta para {selected_item}")
 
-        if mode == 'by_service_type':
-            # This mode evaluates PROVEEDORES within a selected TIPO DE SERVICIO
-            st_identifier = identifier # This is the service type selected
-            all_providers_for_st = sorted(df_filtered['PROVEEDOR'].dropna().unique().tolist())
-            
-            # Prepare summary_df_calificacion
-            for cat, texto, escala in preguntas:
-                row = {'Categoría': cat, 'Pregunta': texto}
-                for prov in all_providers_for_st:
-                    # Key format: {evaluation_mode}-{service_type/provider_identifier}-{category}-{question_text}-{provider_name (if by service type)}
-                    unique_key = f"{mode}-{st_identifier}-{cat}-{texto}-{prov}"
-                    score = st.session_state['all_evaluation_widgets_map'].get(unique_key, np.nan)
-                    row[prov] = score
-                summary_data.append(row)
-            summary_df_calificacion = pd.DataFrame(summary_data)
-            summary_df_calificacion.set_index(['Categoría', 'Pregunta'], inplace=True)
-            total_scores_by_provider = summary_df_calificacion.sum(numeric_only=True)
-            summary_df_calificacion.loc[('Total General', 'Puntuación Total')] = total_scores_by_provider.astype(int) # Ensure int
+            # Define the structure for storing scores by question and service type
+            question_scores_by_service_type = {}
+            for service_type in df_filtered['tipo_de_servicio'].unique():
+                question_scores_by_service_type[service_type] = {q[1]: [] for q in preguntas}
 
-            # Quantitative Metrics
-            metrics = st.session_state.get('current_service_type_metrics', {})
-            cnt_p = metrics.get('cnt', pd.Series())
-            cost_p = metrics.get('cost', pd.Series())
-            mttr_p = metrics.get('mttr', pd.Series())
-            mtbf_p = metrics.get('mtbf', pd.Series())
-            disp_p = metrics.get('disp', pd.Series())
-            rend_p = metrics.get('rend', pd.Series())
+            # Group by 'Aviso' to process each record
+            for index, row in df_filtered.iterrows():
+                aviso_id = row['aviso']
+                service_type = row['tipo_de_servicio']
 
-            for prov in all_providers_for_st:
-                quantitative_metrics_data['Tipo de Elemento Evaluado'].append('Proveedor')
-                quantitative_metrics_data['Elemento Evaluado (Nombre)'].append(prov)
-                quantitative_metrics_data['Número de Avisos'].append(cnt_p.get(prov, 0))
-                quantitative_metrics_data['Costo Total Real'].append(cost_p.get(prov, 0))
-                quantitative_metrics_data['MTTR Promedio (hrs)'].append(mttr_p.get(prov, np.nan))
-                quantitative_metrics_data['MTBF Promedio (hrs)'].append(mtbf_p.get(prov, np.nan))
-                quantitative_metrics_data['Disponibilidad Promedio (%)'].append(disp_p.get(prov, np.nan))
-                quantitative_metrics_data['Rendimiento'].append(rend_p.get(prov, 'No Aplica'))
-            
-            quantitative_metrics_df = pd.DataFrame(quantitative_metrics_data)
-            col_name_for_scores = 'Proveedor'
-            ranking_title = f"Ranking de Proveedores para el Tipo de Servicio: {st_identifier}"
+                # Ensure service_type exists in our structure
+                if service_type not in question_scores_by_service_type:
+                    question_scores_by_service_type[service_type] = {q[1]: [] for q in preguntas}
 
-        elif mode == 'by_provider':
-            # This mode evaluates TIPO DE SERVICIO for a selected PROVEEDOR
-            prov_identifier = identifier # This is the provider selected
-            all_service_types_for_prov = sorted(df_filtered['TIPO DE SERVICIO'].dropna().unique().tolist())
+                # Retrieve scores for the current aviso, for the selected provider
+                if f"scores_{aviso_id}_{selected_item}" in st.session_state:
+                    scores_for_aviso = st.session_state[f"scores_{aviso_id}_{selected_item}"]
 
-            # Prepare summary_df_calificacion
-            for cat, texto, escala in preguntas:
-                row = {'Categoría': cat, 'Pregunta': texto}
-                for service_type in all_service_types_for_prov:
-                    # Key format: {mode}-{selected_provider_eval}-{category}-{question_text}-{service_type_original}
-                    unique_key = f"{mode}-{prov_identifier}-{cat}-{texto}-{service_type}"
-                    score = st.session_state['all_evaluation_widgets_map'].get(unique_key, np.nan)
-                    row[service_type] = score
-                summary_data.append(row)
-            summary_df_calificacion = pd.DataFrame(summary_data)
-            summary_df_calificacion.set_index(['Categoría', 'Pregunta'], inplace=True)
-            total_scores_by_service_type = summary_df_calificacion.sum(numeric_only=True)
-            summary_df_calificacion.loc[('Total General', 'Puntuación Total')] = total_scores_by_service_type.astype(int) # Ensure int
+                    for q_category, question_text, q_type in preguntas:
+                        if question_text in scores_for_aviso:
+                            score = scores_for_aviso[question_text]
+                            question_scores_by_service_type[service_type][question_text].append(score)
 
+            # Calculate average score per question per service type
+            avg_scores_display = []
+            for service_type, questions_data in question_scores_by_service_type.items():
+                for question_text, scores_list in questions_data.items():
+                    if scores_list:
+                        avg_score = np.mean(scores_list)
+                        avg_scores_display.append({
+                            "Tipo de Servicio": service_type,
+                            "Pregunta": question_text,
+                            "Puntuación Promedio": f"{avg_score:.2f}"
+                        })
 
-            # Quantitative Metrics
-            metrics_per_service_type = st.session_state.get('current_provider_service_type_metrics', {})
-            for service_type in all_service_types_for_prov:
-                sts_metrics = metrics_per_service_type.get(service_type, {})
-                quantitative_metrics_data['Tipo de Elemento Evaluado'].append('Tipo de Servicio')
-                quantitative_metrics_data['Elemento Evaluado (Nombre)'].append(service_type)
-                quantitative_metrics_data['Número de Avisos'].append(sts_metrics.get('cnt', 0))
-                quantitative_metrics_data['Costo Total Real'].append(sts_metrics.get('cost', 0.0))
-                quantitative_metrics_data['MTTR Promedio (hrs)'].append(sts_metrics.get('mttr', np.nan))
-                quantitative_metrics_data['MTBF Promedio (hrs)'].append(sts_metrics.get('mtbf', np.nan))
-                quantitative_metrics_data['Disponibilidad Promedio (%)'].append(sts_metrics.get('disp', np.nan))
-                quantitative_metrics_data['Rendimiento'].append(sts_metrics.get('rend', 'No Aplica'))
-            
-            quantitative_metrics_df = pd.DataFrame(quantitative_metrics_data)
-            col_name_for_scores = 'Tipo de Servicio'
-            ranking_title = f"Puntuación por Tipo de Servicio para el Proveedor: {prov_identifier}"
+            if avg_scores_display:
+                df_avg_scores = pd.DataFrame(avg_scores_display)
+                st.dataframe(df_avg_scores, use_container_width=True)
+            else:
+                st.info("No hay calificaciones para mostrar para este proveedor.")
 
+            # Calculate total scores by provider based on current session state for all relevant avisos
+            total_scores_by_provider = {}
+            for aviso_id_key in st.session_state.keys():
+                if aviso_id_key.startswith("scores_"):
+                    # Extract aviso_id and provider_name from the key
+                    parts = aviso_id_key.split('_')
+                    current_aviso_id = int(parts[1])
+                    current_provider_name = '_'.join(parts[2:])
 
-        if summary_df_calificacion.empty:
-            st.warning("No se pudieron generar datos de resumen de evaluación.")
-            return
+                    # Only process scores for the selected provider for the by_provider mode
+                    if current_provider_name == selected_item:
+                        scores_for_aviso = st.session_state[aviso_id_key]
+                        total_score_aviso = sum(scores_for_aviso.values())
 
-        # Display the summary table
-        st.markdown("### Resumen de Calificación por Pregunta")
-        st.dataframe(summary_df_calificacion.style.format(precision=0, na_rep='N/A'), use_container_width=True)
+                        if current_provider_name not in total_scores_by_provider:
+                            total_scores_by_provider[current_provider_name] = 0
+                        total_scores_by_provider[current_provider_name] += total_score_aviso
 
-        # Generate Ranking (or single score for by_provider mode)
-        # Note: 'total_scores_by_provider' (or service type) comes from the current evaluation context
-        ranking_df = pd.DataFrame({'Puntuación Total': total_scores_by_provider}).sort_values('Puntuación Total', ascending=False)
-        ranking_df.index.name = col_name_for_scores
-        
-        if mode == 'by_service_type':
-            ranking_df['Ranking'] = ranking_df['Puntuación Total'].rank(method='min', ascending=False).astype(int)
-            ranking_df = ranking_df.reset_index().set_index('Ranking')
-        else: # mode == 'by_provider'
-            ranking_df = ranking_df.reset_index()
+            if total_scores_by_provider:
+                st.write("### Resumen de Calificación General por Proveedor")
+                # This is the line that caused the error previously
+                ranking_df = pd.DataFrame({'Puntuación Total': total_scores_by_provider}).sort_values('Puntuación Total', ascending=False)
+                st.dataframe(ranking_df, use_container_width=True)
+            else:
+                st.info("No se han registrado calificaciones totales para el proveedor seleccionado.")
 
+        elif mode == 'overall':
+            st.write("### Resumen de Calificación General de Todos los Proveedores")
+            all_providers_scores = {}
 
-        st.markdown(f"### {ranking_title}")
-        st.dataframe(ranking_df.style.format(precision=0, na_rep='N/A'), use_container_width=True)
+            # Iterate through all avisos and sum up scores for each provider
+            for aviso_id_key in st.session_state.keys():
+                if aviso_id_key.startswith("scores_"):
+                    # Extract aviso_id and provider_name from the key
+                    parts = aviso_id_key.split('_')
+                    current_aviso_id = int(parts[1])
+                    current_provider_name = '_'.join(parts[2:])
 
-        # Display quantitative metrics
-        st.markdown(f"### Métricas Cuantitativas")
-        st.dataframe(quantitative_metrics_df.style.format(precision=2, na_rep='N/A'), use_container_width=True)
+                    scores_for_aviso = st.session_state[aviso_id_key]
+                    total_score_aviso = sum(scores_for_aviso.values())
 
+                    if current_provider_name not in all_providers_scores:
+                        all_providers_scores[current_provider_name] = 0
+                    all_providers_scores[current_provider_name] += total_score_aviso
 
-        # To Excel
-        output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            summary_df_calificacion.to_excel(writer, sheet_name='Calificaciones por Pregunta')
-            ranking_df.to_excel(writer, sheet_name='Ranking')
-            quantitative_metrics_df.to_excel(writer, sheet_name='Metricas Cuantitativas', index=False)
+            if all_providers_scores:
+                ranking_df = pd.DataFrame({'Puntuación Total': all_providers_scores}).sort_values('Puntuación Total', ascending=False)
+                st.dataframe(ranking_df, use_container_width=True)
+            else:
+                st.info("No se han registrado calificaciones para ningún proveedor.")
 
-            # Optional: Auto-adjust column widths for better readability
-            for sheet_name in writer.sheets:
-                worksheet = writer.sheets[sheet_name]
-                for idx, col in enumerate(summary_df_calificacion.columns):
-                    max_len = max(
-                        len(str(col)),
-                        (summary_df_calificacion[col].astype(str).map(len).max() if not summary_df_calificacion[col].empty else 0)
-                    ) + 2
-                    worksheet.set_column(idx, idx, max_len)
-                # For MultiIndex, adjust first few columns manually if needed
-                if sheet_name == 'Calificaciones por Pregunta':
-                    worksheet.set_column(0, 0, 20) # Categoría
-                    worksheet.set_column(1, 1, 60) # Pregunta
-
-        st.download_button(
-            label="Descargar Resumen de Evaluación como Excel",
-            data=output.getvalue(),
-            file_name=f"Resumen_Evaluacion_{identifier.replace(' ', '_')}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            key=f"download_button_{mode}_{identifier}"
-        )
-
+        if st.button("Exportar Resumen a Excel"):
+            if 'ranking_df' in locals() and not ranking_df.empty: # Check if ranking_df was created
+                output = io.BytesIO()
+                writer = pd.ExcelWriter(output, engine='xlsxwriter')
+                ranking_df.to_excel(writer, sheet_name='Resumen_Evaluacion', index=True)
+                writer.close()
+                output.seek(0)
+                st.download_button(
+                    label="Descargar Excel de Resumen",
+                    data=output,
+                    file_name="resumen_evaluacion_proveedores.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+            else:
+                st.warning("No hay datos de resumen para exportar. Por favor, genera la evaluación primero.")
 
     def graficar_rendimiento(self, rendimiento_series):
         if rendimiento_series.empty:
