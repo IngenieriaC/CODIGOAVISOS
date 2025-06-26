@@ -8,9 +8,10 @@ import seaborn as sns
 import re
 import io
 import numpy as np
+
 # --- Configuración de la página (temática Sura) ---
 st.set_page_config(
-    page_title="Gestión Administrativa - Sura",
+    page_title="Gerencia de Gestión Administrativa - Sura",
     layout="wide",
     initial_sidebar_state="expanded",
     # Icono de la página (opcional, puedes cambiar '📈' por el tuyo)
@@ -69,68 +70,14 @@ st.markdown(
 # --- Bienvenida y encabezado ---
 st.title("¡Hola, usuario Sura! 👋")
 st.markdown("---")
-st.header("Proyecto de **Gestión Administrativa** en Ingeniería Clínica")
+st.header("Proyecto de **Gerencia de Gestión Administrativa** en Ingeniería Clínica")
 st.markdown("""
-    Aquí podrás **analizar y gestionar los datos de avisos** para optimizar los procesos. Creado por Naida López Aprendiz Universitaria.
+    Aquí podrás **analizar y gestionar los datos de avisos** para optimizar los procesos.
+    Por favor, **sube el archivo `DATA2.XLSX`** para comenzar.
 """)
+
 # Set a nice style for plots
 sns.set_style('whitegrid')
-
-# --- Configuración de la página (temática Sura) ---
-st.set_page_config(
-    page_title="Gerencia de Gestión Administrativa - Sura",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
-
-# Estilos CSS para ambientar en amarillo, blanco y azul rey
-st.markdown(
-    """
-    <style>
-    /* Estilos generales del fondo con degradado */
-    .stApp {
-        background: linear-gradient(to right, #FFFFFF, #FFFACD, #4169E1); /* Blanco, Amarillo claro (Cream), Azul Rey */
-        color: #333333; /* Color de texto general */
-    }
-    /* Sidebar */
-    .st-emotion-cache-1oe6z58 { /* Esta clase puede cambiar en futuras versiones de Streamlit */
-        background-color: #F0F8FF; /* Azul claro para la sidebar */
-    }
-    /* Títulos */
-    h1, h2, h3, h4, h5, h6 {
-        color: #4169E1; /* Azul Rey para los títulos */
-    }
-    /* Botones */
-    .stButton>button {
-        background-color: #4169E1; /* Azul Rey para los botones */
-        color: white;
-        border: none;
-        padding: 0.75rem 1.5rem;
-        border-radius: 0.5rem;
-        transition: background-color 0.3s ease;
-    }
-    .stButton>button:hover {
-        background-color: #F8D568; /* Amarillo para hover */
-        color: #4169E1;
-        border: 1px solid #4169E1;
-    }
-    /* Contenedores de contenido principal */
-    .st-emotion-cache-z5fcl4, .st-emotion-cache-1c7y2kl, .st-emotion-cache-nahz7x { /* Clases genéricas para contenedores */
-        background-color: rgba(255, 255, 255, 0.9); /* Blanco semitransparente */
-        padding: 1.5rem;
-        border-radius: 0.75rem;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        margin-bottom: 1rem;
-    }
-    /* Mejoras para la tabla (dataframe) */
-    .streamlit-dataframe {
-        border-radius: 0.5rem;
-        overflow: hidden; /* Asegura que las esquinas redondeadas se apliquen bien */
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
 
 # --- Función de carga & unión (optimizada para Streamlit) ---
 @st.cache_data
@@ -159,27 +106,54 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
     for df_temp in (iw29, iw39, ih08, iw65, zpm015):
         df_temp.columns = df_temp.columns.str.strip()
 
+    # Convertir columnas clave a tipo string para asegurar fusiones correctas
+    # Esto es crucial para evitar problemas de tipo de dato durante las operaciones de merge.
+    if 'Aviso' in iw29.columns:
+        iw29['Aviso'] = iw29['Aviso'].astype(str)
+    if 'Aviso' in iw39.columns:
+        iw39['Aviso'] = iw39['Aviso'].astype(str)
+    if 'Aviso' in iw65.columns:
+        iw65['Aviso'] = iw65['Aviso'].astype(str)
+    if 'Equipo' in iw29.columns: # equipo_original is derived from iw29
+        iw29['Equipo'] = iw29['Equipo'].astype(str)
+    if 'Equipo' in ih08.columns:
+        ih08['Equipo'] = ih08['Equipo'].astype(str)
+    if 'Equipo' in zpm015.columns:
+        zpm015['Equipo'] = zpm015['Equipo'].astype(str)
+
+
     # Guardar "Equipo" original desde IW29 para evitar pérdida
-    equipo_original = iw29[["Aviso", "Equipo", "Duración de parada", "Descripción"]].copy()
+    # Asegúrate de que 'Aviso' y 'Equipo' estén presentes antes de intentar copiarlos.
+    equipo_original_cols = ["Aviso", "Equipo", "Duración de parada", "Descripción"]
+    equipo_original = iw29[[col for col in equipo_original_cols if col in iw29.columns]].copy()
+
 
     # Extraer solo columnas necesarias de iw39 para el merge (incluyendo 'Total general (real)')
-    iw39_subset = iw39[["Aviso", "Total general (real)"]]
+    iw39_subset_cols = ["Aviso", "Total general (real)"]
+    iw39_subset = iw39[[col for col in iw39_subset_cols if col in iw39.columns]]
+
 
     # Unir por 'Aviso'
     tmp1 = pd.merge(iw29, iw39_subset, on="Aviso", how="left")
     tmp2 = pd.merge(tmp1, iw65, on="Aviso", how="left")
 
     # Restaurar el valor original de "Equipo" de IW29 después del merge
-    tmp2.drop(columns=["Equipo"], errors='ignore', inplace=True)
+    # Eliminar la columna 'Equipo' si existe antes de fusionar para restaurarla.
+    if 'Equipo' in tmp2.columns:
+        tmp2.drop(columns=["Equipo"], errors='ignore', inplace=True)
     tmp2 = pd.merge(tmp2, equipo_original, on="Aviso", how="left")
 
     # Unir por 'Equipo' con IH08
-    tmp3 = pd.merge(tmp2, ih08[[
+    ih08_merge_cols = [
         "Equipo", "Inic.garantía prov.", "Fin garantía prov.", "Texto", "Indicador ABC", "Denominación de objeto técnico"
-    ]], on="Equipo", how="left")
+    ]
+    ih08_merge_cols = [col for col in ih08_merge_cols if col in ih08.columns] # Ensure columns exist
+    tmp3 = pd.merge(tmp2, ih08[ih08_merge_cols], on="Equipo", how="left")
 
     # Unir por 'Equipo' con ZPM015
-    tmp4 = pd.merge(tmp3, zpm015[["Equipo", "TIPO DE SERVICIO"]], on="Equipo", how="left")
+    zpm015_merge_cols = ["Equipo", "TIPO DE SERVICIO"]
+    zpm015_merge_cols = [col for col in zpm015_merge_cols if col in zpm015.columns] # Ensure columns exist
+    tmp4 = pd.merge(tmp3, zpm015[zpm015_merge_cols], on="Equipo", how="left")
 
     # Renombrar columnas
     tmp4.rename(columns={
@@ -202,7 +176,7 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
 
     df = tmp4[columnas_finales]
 
-    # Normalize column names more robustly from code_avisos (1).py
+    # Normalize column names more robustly
     ORIGINAL_EJECUTANTE_COL_NAME = "Denominación ejecutante"
     ORIGINAL_CP_COL_NAME = "Código postal"
     ORIGINAL_OBJETO_TECNICO_COL_NAME = "Denominación de objeto técnico"
@@ -212,7 +186,6 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
     ORIGINAL_COSTOS_COL_NAME = "Costes tot.reales"
     ORIGINAL_DESCRIPTION_COL_NAME = "Descripción"
     ORIGINAL_FECHA_AVISO_COL_NAME = "Fecha de aviso"
-    # ORIGINAL_TEXTO_POSICION_COL_NAME = "Texto de Posición" # This is the missing column, keeping commented
     ORIGINAL_TEXTO_EQUIPO_COL_NAME = "Texto_equipo"
     ORIGINAL_DURACION_PARADA_COL_NAME = "Duración de parada"
     ORIGINAL_EQUIPO_COL_COL_NAME = "Equipo"
@@ -229,7 +202,6 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
         ORIGINAL_COSTOS_COL_NAME: "costes_totreales",
         ORIGINAL_DESCRIPTION_COL_NAME: "descripcion",
         ORIGINAL_FECHA_AVISO_COL_NAME: "fecha_de_aviso",
-        # ORIGINAL_TEXTO_POSICION_COL_NAME: "texto_de_posicion", # If this column exists in your data, uncomment
         ORIGINAL_TEXTO_EQUIPO_COL_NAME: "texto_equipo",
         ORIGINAL_DURACION_PARADA_COL_NAME: "duracion_de_parada",
         ORIGINAL_EQUIPO_COL_COL_NAME: "equipo",
@@ -256,18 +228,25 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
             )
     df.columns = normalized_df_columns
 
-    # Assign relevant columns to new, simplified names for easier access (from first code)
-    df['PROVEEDOR'] = df['denominacion_ejecutante']
-    df['COSTO'] = df['costes_totreales']
-    df['TIEMPO PARADA'] = pd.to_numeric(df['duracion_de_parada'], errors='coerce')
-    df['EQUIPO'] = pd.to_numeric(df['equipo'], errors='coerce')
-    df['AVISO'] = pd.to_numeric(df['aviso'], errors='coerce')
-    df['TIPO DE SERVICIO'] = df['tipo_de_servicio']
+    # Assign relevant columns to new, simplified names for easier access
+    if 'denominacion_ejecutante' in df.columns:
+        df['PROVEEDOR'] = df['denominacion_ejecutante']
+    if 'costes_totreales' in df.columns:
+        df['COSTO'] = df['costes_totreales']
+    if 'duracion_de_parada' in df.columns:
+        df['TIEMPO PARADA'] = pd.to_numeric(df['duracion_de_parada'], errors='coerce')
+    if 'equipo' in df.columns:
+        df['EQUIPO'] = pd.to_numeric(df['equipo'], errors='coerce')
+    if 'aviso' in df.columns:
+        df['AVISO'] = pd.to_numeric(df['aviso'], errors='coerce')
+    if 'tipo_de_servicio' in df.columns:
+        df['TIPO DE SERVICIO'] = df['tipo_de_servicio']
 
     # Ensure 'costes_totreales' is numeric
-    df['costes_totreales'] = pd.to_numeric(df['costes_totreales'], errors='coerce')
+    if 'costes_totreales' in df.columns:
+        df['costes_totreales'] = pd.to_numeric(df['costes_totreales'], errors='coerce')
 
-    # --- HORARIO Mapping (from first code) ---
+    # --- HORARIO Mapping ---
     horarios_dict = {
         "HORARIO_99": (17, 364.91), "HORARIO_98": (14.5, 312.78), "HORARIO_97": (9.818181818, 286.715),
         "HORARIO_96": (14.5, 312.78), "HORARIO_95": (4, 208.52), "HORARIO_93": (13.45454545, 286.715),
@@ -315,20 +294,23 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
         "HORARIO_101": (12, 260.65), "HORARIO_100": (11.16666667, 312.78), "HORARIO_10": (6, 312.78),
         "HORARIO_1": (24, 364.91),
     }
-    df['HORARIO'] = df['texto_equipo'].str.strip().str.upper()
-    df['HORA/ DIA'] = df['HORARIO'].map(lambda x: horarios_dict.get(x, (None, None))[0])
-    df['DIAS/ AÑO'] = df['HORARIO'].map(lambda x: horarios_dict.get(x, (None, None))[1])
-    df['DIAS/ AÑO'] = pd.to_numeric(df['DIAS/ AÑO'], errors='coerce')
-    df['HORA/ DIA'] = pd.to_numeric(df['HORA/ DIA'], errors='coerce')
+    if 'texto_equipo' in df.columns:
+        df['HORARIO'] = df['texto_equipo'].str.strip().str.upper()
+        df['HORA/ DIA'] = df['HORARIO'].map(lambda x: horarios_dict.get(x, (None, None))[0])
+        df['DIAS/ AÑO'] = df['HORARIO'].map(lambda x: horarios_dict.get(x, (None, None))[1])
+        df['DIAS/ AÑO'] = pd.to_numeric(df['DIAS/ AÑO'], errors='coerce')
+        df['HORA/ DIA'] = pd.to_numeric(df['HORA/ DIA'], errors='coerce')
 
-    # --- Initial Filtering from first code ---
+    # --- Initial Filtering ---
     # Ensure 'EQUIPO' is not NaN for core calculations
-    df = df.dropna(subset=['EQUIPO'])
+    if 'EQUIPO' in df.columns:
+        df = df.dropna(subset=['EQUIPO'])
 
     # --- Additional Preprocessing for Second Code's requirements ---
-    df["fecha_de_aviso"] = pd.to_datetime(df["fecha_de_aviso"], errors="coerce")
-    df["año"] = df["fecha_de_aviso"].dt.year
-    df["mes"] = df["fecha_de_aviso"].dt.strftime("%B") # Month name, e.g., 'January'
+    if 'fecha_de_aviso' in df.columns:
+        df["fecha_de_aviso"] = pd.to_datetime(df["fecha_de_aviso"], errors="coerce")
+        df["año"] = df["fecha_de_aviso"].dt.year
+        df["mes"] = df["fecha_de_aviso"].dt.strftime("%B") # Month name, e.g., 'January'
 
     def extract_description_category(description):
         if pd.isna(description):
@@ -338,14 +320,9 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
             return match.group(1)
         return "Otros"
 
-    df["description_category"] = df['descripcion'].apply(extract_description_category)
-           # Convertir DataFrame a Excel en memoria
-        output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            df.to_excel(writer, index=False, sheet_name='Datos Consolidados')
-        output.seek(0)  # Importante: volver al inicio del archivo
-    
-        return df, output
+    if 'descripcion' in df.columns:
+        df["description_category"] = df['descripcion'].apply(extract_description_category)
+    return df
 
 # --- DEFINICIÓN DE PREGUNTAS PARA EVALUACIÓN ---
 preguntas = [
@@ -566,8 +543,12 @@ def calcular_indicadores(df_filtered_data, group_col='PROVEEDOR'):
 
     # Ensure required columns are present
     required_cols = [group_col, 'TIEMPO PARADA', 'COSTO', 'AVISO', 'HORA/ DIA', 'DIAS/ AÑO']
-    if not all(col in df_filtered_data.columns for col in required_cols):
-        st.error(f"Faltan columnas requeridas para calcular indicadores: {set(required_cols) - set(df_filtered_data.columns)}")
+    # Filter for columns that actually exist in the dataframe before checking
+    existing_required_cols = [col for col in required_cols if col in df_filtered_data.columns]
+    
+    if len(existing_required_cols) < len(required_cols):
+        missing_cols = set(required_cols) - set(existing_required_cols)
+        st.error(f"Faltan columnas requeridas para calcular indicadores: {missing_cols}")
         return (pd.Series(dtype=int), pd.Series(dtype=float), pd.Series(dtype=float),
                 pd.Series(dtype=float), pd.Series(dtype=float), pd.Series(dtype=object))
 
@@ -632,14 +613,14 @@ class CostosAvisosApp:
         # Sidebar filters for Costos y Avisos
         st.sidebar.markdown("---")
         st.sidebar.header("Filtros para Análisis")
-        all_providers = ['Todos'] + sorted(self.df['PROVEEDOR'].dropna().unique().tolist())
+        all_providers = ['Todos'] + sorted(self.df['PROVEEDOR'].dropna().unique().tolist()) if 'PROVEEDOR' in self.df.columns else ['Todos']
         selected_provider_costos = st.sidebar.selectbox("Selecciona Proveedor:", all_providers, key='costos_provider_filter')
 
-        all_service_types = ['Todos'] + sorted(self.df['TIPO DE SERVICIO'].dropna().unique().tolist())
+        all_service_types = ['Todos'] + sorted(self.df['TIPO DE SERVICIO'].dropna().unique().tolist()) if 'TIPO DE SERVICIO' in self.df.columns else ['Todos']
         selected_service_type_costos = st.sidebar.selectbox("Selecciona Tipo de Servicio:", all_service_types, key='costos_service_type_filter')
 
-        min_date = self.df[self.COL_FECHA_AVISO_NORMALIZED].min().date() if not self.df[self.COL_FECHA_AVISO_NORMALIZED].empty and pd.notna(self.df[self.COL_FECHA_AVISO_NORMALIZED].min()) else pd.to_datetime('2020-01-01').date()
-        max_date = self.df[self.COL_FECHA_AVISO_NORMALIZED].max().date() if not self.df[self.COL_FECHA_AVISO_NORMALIZED].empty and pd.notna(self.df[self.COL_FECHA_AVISO_NORMALIZED].max()) else pd.to_datetime('2024-12-31').date()
+        min_date = self.df[self.COL_FECHA_AVISO_NORMALIZED].min().date() if self.COL_FECHA_AVISO_NORMALIZED in self.df.columns and not self.df[self.COL_FECHA_AVISO_NORMALIZED].empty and pd.notna(self.df[self.COL_FECHA_AVISO_NORMALIZED].min()) else pd.to_datetime('2020-01-01').date()
+        max_date = self.df[self.COL_FECHA_AVISO_NORMALIZED].max().date() if self.COL_FECHA_AVISO_NORMALIZED in self.df.columns and not self.df[self.COL_FECHA_AVISO_NORMALIZED].empty and pd.notna(self.df[self.COL_FECHA_AVISO_NORMALIZED].max()) else pd.to_datetime('2024-12-31').date()
         date_range = st.sidebar.date_input(
             "Rango de Fechas:",
             value=(min_date, max_date),
@@ -649,12 +630,12 @@ class CostosAvisosApp:
         )
 
         filtered_df_costos = self.df.copy()
-        if selected_provider_costos != 'Todos':
+        if selected_provider_costos != 'Todos' and 'PROVEEDOR' in filtered_df_costos.columns:
             filtered_df_costos = filtered_df_costos[filtered_df_costos['PROVEEDOR'] == selected_provider_costos]
-        if selected_service_type_costos != 'Todos':
+        if selected_service_type_costos != 'Todos' and 'TIPO DE SERVICIO' in filtered_df_costos.columns:
             filtered_df_costos = filtered_df_costos[filtered_df_costos['TIPO DE SERVICIO'] == selected_service_type_costos]
 
-        if len(date_range) == 2:
+        if len(date_range) == 2 and self.COL_FECHA_AVISO_NORMALIZED in filtered_df_costos.columns:
             start_date, end_date = date_range
             filtered_df_costos = filtered_df_costos[
                 (filtered_df_costos[self.COL_FECHA_AVISO_NORMALIZED].dt.date >= start_date) &
@@ -667,8 +648,8 @@ class CostosAvisosApp:
 
         st.markdown("### Resumen General de Costos y Avisos")
 
-        total_costos = filtered_df_costos[self.COL_COSTOS_NORMALIZED].sum()
-        total_avisos = filtered_df_costos[self.COL_AVISO_NORMALIZED].nunique()
+        total_costos = filtered_df_costos[self.COL_COSTOS_NORMALIZED].sum() if self.COL_COSTOS_NORMALIZED in filtered_df_costos.columns else 0
+        total_avisos = filtered_df_costos[self.COL_AVISO_NORMALIZED].nunique() if self.COL_AVISO_NORMALIZED in filtered_df_costos.columns else 0
         avg_costo_por_aviso = total_costos / total_avisos if total_avisos > 0 else 0
 
         col1, col2, col3 = st.columns(3)
@@ -691,52 +672,77 @@ class CostosAvisosApp:
 
         group_col, value_col, analysis_type = self.opciones_menu[selected_analysis_key]
 
+        # Ensure the group_col exists in the filtered DataFrame before proceeding
+        if group_col not in filtered_df_costos.columns:
+            st.warning(f"La columna '{group_col}' no se encontró en los datos filtrados para este tipo de análisis.")
+            return
+
         if analysis_type == "costos":
             st.markdown(f"#### {selected_analysis_key}")
-            # Get full sorted data for pagination
-            full_data_sorted = filtered_df_costos.groupby(group_col)[value_col].sum().sort_values(ascending=False)
-            title = f'Top {selected_analysis_key}'
-            xlabel = group_col.replace("_", " ").title()
-            ylabel = 'Costo Total ($COP)'
-            self._display_paged_table_and_plot(full_data_sorted, title, xlabel, ylabel, "costos")
+            if value_col in filtered_df_costos.columns:
+                full_data_sorted = filtered_df_costos.groupby(group_col)[value_col].sum().sort_values(ascending=False)
+                title = f'Top {selected_analysis_key}'
+                xlabel = group_col.replace("_", " ").title()
+                ylabel = 'Costo Total ($COP)'
+                self._display_paged_table_and_plot(full_data_sorted, title, xlabel, ylabel, "costos")
+            else:
+                st.warning(f"La columna '{value_col}' (Costos) no se encontró para este análisis.")
         elif analysis_type == "avisos":
             st.markdown(f"#### {selected_analysis_key}")
-            # Get full sorted data for pagination
-            full_data_sorted = filtered_df_costos.groupby(group_col)[self.COL_AVISO_NORMALIZED].nunique().sort_values(ascending=False)
-            title = f'Top {selected_analysis_key}'
-            xlabel = group_col.replace("_", " ").title()
-            ylabel = 'Número de Avisos'
-            self._display_paged_table_and_plot(full_data_sorted, title, xlabel, ylabel, "avisos", color_palette='viridis')
+            if self.COL_AVISO_NORMALIZED in filtered_df_costos.columns:
+                full_data_sorted = filtered_df_costos.groupby(group_col)[self.COL_AVISO_NORMALIZED].nunique().sort_values(ascending=False)
+                title = f'Top {selected_analysis_key}'
+                xlabel = group_col.replace("_", " ").title()
+                ylabel = 'Número de Avisos'
+                self._display_paged_table_and_plot(full_data_sorted, title, xlabel, ylabel, "avisos", color_palette='viridis')
+            else:
+                st.warning(f"La columna '{self.COL_AVISO_NORMALIZED}' (Avisos) no se encontró para este análisis.")
+
 
         st.markdown("---")
         st.markdown("### Tendencia Mensual de Costos y Avisos")
-        df_monthly = filtered_df_costos.set_index(self.COL_FECHA_AVISO_NORMALIZED).resample('M').agg(
-            Total_Costos=(self.COL_COSTOS_NORMALIZED, 'sum'),
-            Num_Avisos=(self.COL_AVISO_NORMALIZED, 'nunique')
-        ).fillna(0)
+        if self.COL_FECHA_AVISO_NORMALIZED in filtered_df_costos.columns and \
+           self.COL_COSTOS_NORMALIZED in filtered_df_costos.columns and \
+           self.COL_AVISO_NORMALIZED in filtered_df_costos.columns:
+            df_monthly = filtered_df_costos.set_index(self.COL_FECHA_AVISO_NORMALIZED).resample('M').agg(
+                Total_Costos=(self.COL_COSTOS_NORMALIZED, 'sum'),
+                Num_Avisos=(self.COL_AVISO_NORMALIZED, 'nunique')
+            ).fillna(0)
 
-        fig_monthly, ax_monthly1 = plt.subplots(figsize=(12, 6))
-        color = 'tab:red'
-        ax_monthly1.set_xlabel('Fecha')
-        ax_monthly1.set_ylabel('Total Costos ($COP)', color=color)
-        ax_monthly1.plot(df_monthly.index, df_monthly['Total_Costos'], color=color, marker='o')
-        ax_monthly1.tick_params(axis='y', labelcolor=color)
+            fig_monthly, ax_monthly1 = plt.subplots(figsize=(12, 6))
+            color = 'tab:red'
+            ax_monthly1.set_xlabel('Fecha')
+            ax_monthly1.set_ylabel('Total Costos ($COP)', color=color)
+            ax_monthly1.plot(df_monthly.index, df_monthly['Total_Costos'], color=color, marker='o')
+            ax_monthly1.tick_params(axis='y', labelcolor=color)
 
-        ax_monthly2 = ax_monthly1.twinx()
-        color = 'tab:blue'
-        ax_monthly2.set_ylabel('Número de Avisos', color=color)
-        ax_monthly2.plot(df_monthly.index, df_monthly['Num_Avisos'], color=color, marker='x', linestyle='--')
-        ax_monthly2.tick_params(axis='y', labelcolor=color)
+            ax_monthly2 = ax_monthly1.twinx()
+            color = 'tab:blue'
+            ax_monthly2.set_ylabel('Número de Avisos', color=color)
+            ax_monthly2.plot(df_monthly.index, df_monthly['Num_Avisos'], color=color, marker='x', linestyle='--')
+            ax_monthly2.tick_params(axis='y', labelcolor=color)
 
-        fig_monthly.autofmt_xdate()
-        plt.title('Tendencia Mensual de Costos y Avisos')
-        st.pyplot(fig_monthly)
+            fig_monthly.autofmt_xdate()
+            plt.title('Tendencia Mensual de Costos y Avisos')
+            st.pyplot(fig_monthly)
+        else:
+            st.info("No hay suficientes datos para graficar la tendencia mensual de costos y avisos (asegúrate de que las columnas 'fecha_de_aviso', 'costes_totreales' y 'aviso' existan).")
+
 
         st.markdown("### Detalle de Datos Filtrados (Primeras 100 Filas)")
-        st.dataframe(filtered_df_costos[[self.COL_AVISO_NORMALIZED, self.COL_FECHA_AVISO_NORMALIZED, 'PROVEEDOR', 'TIPO DE SERVICIO', 'descripcion', self.COL_COSTOS_NORMALIZED, 'TIEMPO PARADA']].head(100))
+        display_cols = [self.COL_AVISO_NORMALIZED, self.COL_FECHA_AVISO_NORMALIZED, 'PROVEEDOR', 'TIPO DE SERVICIO', 'descripcion', self.COL_COSTOS_NORMALIZED, 'TIEMPO PARADA']
+        existing_display_cols = [col for col in display_cols if col in filtered_df_costos.columns]
+        if existing_display_cols:
+            st.dataframe(filtered_df_costos[existing_display_cols].head(100))
+        else:
+            st.info("No hay columnas disponibles para mostrar el detalle de los datos filtrados.")
 
 
     def _plot_bar_chart(self, data, title, xlabel, ylabel, color_palette='coolwarm'):
+        if data.empty:
+            st.info("No hay datos para graficar.")
+            return
+
         fig, ax = plt.subplots(figsize=(10, 6))
         sns.barplot(x=data.index, y=data.values, ax=ax, palette=color_palette)
         ax.set_title(title)
@@ -748,6 +754,10 @@ class CostosAvisosApp:
         st.pyplot(fig)
         
     def _display_paged_table_and_plot(self, full_data_sorted, title, xlabel, ylabel, analysis_type, color_palette='coolwarm'):
+        if full_data_sorted.empty:
+            st.info("No hay datos para mostrar.")
+            return
+
         items_per_page = 10
         total_items = len(full_data_sorted)
         max_page = max(0, (total_items - 1) // items_per_page)
@@ -841,7 +851,7 @@ class EvaluacionProveedoresApp:
     def _display_evaluation_by_service_type(self):
         st.subheader("Evaluación por Tipo de Servicio")
         
-        all_service_types_eval = sorted(self.df['TIPO DE SERVICIO'].dropna().unique().tolist())
+        all_service_types_eval = sorted(self.df['TIPO DE SERVICIO'].dropna().unique().tolist()) if 'TIPO DE SERVICIO' in self.df.columns else []
         service_type_options = ["Seleccionar..."] + all_service_types_eval
         
         try:
@@ -866,10 +876,10 @@ class EvaluacionProveedoresApp:
             st.info("Por favor, selecciona un 'Tipo de Servicio' en la barra lateral para comenzar la evaluación.")
             return
 
-        df_filtered_by_service = self.df[self.df['TIPO DE SERVICIO'] == st.session_state['selected_service_type']]
+        df_filtered_by_service = self.df[self.df['TIPO DE SERVICIO'] == st.session_state['selected_service_type']] if 'TIPO DE SERVICIO' in self.df.columns else pd.DataFrame()
         
         # Get unique providers for the selected service type
-        all_service_providers = sorted(df_filtered_by_service['PROVEEDOR'].dropna().unique().tolist())
+        all_service_providers = sorted(df_filtered_by_service['PROVEEDOR'].dropna().unique().tolist()) if 'PROVEEDOR' in df_filtered_by_service.columns else []
         st.session_state['all_service_providers'] = all_service_providers # Update global list for plots
 
         if not all_service_providers:
@@ -1063,7 +1073,7 @@ class EvaluacionProveedoresApp:
     def _display_evaluation_by_provider(self):
         st.subheader("Evaluación por Proveedor Individual")
 
-        all_providers_eval = sorted(self.df['PROVEEDOR'].dropna().unique().tolist())
+        all_providers_eval = sorted(self.df['PROVEEDOR'].dropna().unique().tolist()) if 'PROVEEDOR' in self.df.columns else []
         provider_options = ["Seleccionar..."] + all_providers_eval
         
         try:
@@ -1089,7 +1099,7 @@ class EvaluacionProveedoresApp:
             return
 
         # Filter DataFrame for the selected provider across all service types
-        df_filtered_by_provider = self.df[self.df['PROVEEDOR'] == st.session_state['selected_provider_eval']]
+        df_filtered_by_provider = self.df[self.df['PROVEEDOR'] == st.session_state['selected_provider_eval']] if 'PROVEEDOR' in self.df.columns else pd.DataFrame()
         
         if df_filtered_by_provider.empty:
             st.info(f"No hay datos para el proveedor '{st.session_state['selected_provider_eval']}'.")
@@ -1097,7 +1107,7 @@ class EvaluacionProveedoresApp:
             return
 
         # Get unique service types for the selected provider
-        all_service_types_for_provider = sorted(df_filtered_by_provider['TIPO DE SERVICIO'].dropna().unique().tolist())
+        all_service_types_for_provider = sorted(df_filtered_by_provider['TIPO DE SERVICIO'].dropna().unique().tolist()) if 'TIPO DE SERVICIO' in df_filtered_by_provider.columns else []
         if not all_service_types_for_provider:
             st.info(f"El proveedor '{st.session_state['selected_provider_eval']}' no tiene tipos de servicio asociados en los datos.")
             return
@@ -1238,7 +1248,6 @@ class EvaluacionProveedoresApp:
                                 key=unique_key,
                                 index=current_index,
                             )
-                            st.session_state['all_evaluation_widgets_map'][unique_label] = opts[selected_label] # Changed to unique_key to match pattern
                             st.session_state['all_evaluation_widgets_map'][unique_key] = opts[selected_label]
         
         # Pagination for service types within provider evaluation
@@ -1292,7 +1301,7 @@ class EvaluacionProveedoresApp:
 
         summary_data = []
         quantitative_metrics_data = {
-            'Identificador de Evaluación': identifier,
+            'Identificador de Evaluación': [],
             'Tipo de Elemento Evaluado': [],
             'Elemento Evaluado (Nombre)': [], # Could be Provider or Service Type
             'Número de Avisos': [],
@@ -1306,7 +1315,7 @@ class EvaluacionProveedoresApp:
         if mode == 'by_service_type':
             # This mode evaluates PROVEEDORES within a selected TIPO DE SERVICIO
             st_identifier = identifier # This is the service type selected
-            all_providers_for_st = sorted(df_filtered['PROVEEDOR'].dropna().unique().tolist())
+            all_providers_for_st = sorted(df_filtered['PROVEEDOR'].dropna().unique().tolist()) if 'PROVEEDOR' in df_filtered.columns else []
             
             # Prepare summary_df_calificacion
             for cat, texto, escala in preguntas:
@@ -1332,6 +1341,7 @@ class EvaluacionProveedoresApp:
             rend_p = metrics.get('rend', pd.Series())
 
             for prov in all_providers_for_st:
+                quantitative_metrics_data['Identificador de Evaluación'].append(st_identifier)
                 quantitative_metrics_data['Tipo de Elemento Evaluado'].append('Proveedor')
                 quantitative_metrics_data['Elemento Evaluado (Nombre)'].append(prov)
                 quantitative_metrics_data['Número de Avisos'].append(cnt_p.get(prov, 0))
@@ -1348,7 +1358,7 @@ class EvaluacionProveedoresApp:
         elif mode == 'by_provider':
             # This mode evaluates TIPO DE SERVICIO for a selected PROVEEDOR
             prov_identifier = identifier # This is the provider selected
-            all_service_types_for_prov = sorted(df_filtered['TIPO DE SERVICIO'].dropna().unique().tolist())
+            all_service_types_for_prov = sorted(df_filtered['TIPO DE SERVICIO'].dropna().unique().tolist()) if 'TIPO DE SERVICIO' in df_filtered.columns else []
 
             # Prepare summary_df_calificacion
             for cat, texto, escala in preguntas:
@@ -1369,6 +1379,7 @@ class EvaluacionProveedoresApp:
             metrics_per_service_type = st.session_state.get('current_provider_service_type_metrics', {})
             for service_type in all_service_types_for_prov:
                 sts_metrics = metrics_per_service_type.get(service_type, {})
+                quantitative_metrics_data['Identificador de Evaluación'].append(prov_identifier)
                 quantitative_metrics_data['Tipo de Elemento Evaluado'].append('Tipo de Servicio')
                 quantitative_metrics_data['Elemento Evaluado (Nombre)'].append(service_type)
                 quantitative_metrics_data['Número de Avisos'].append(sts_metrics.get('cnt', 0))
@@ -1475,17 +1486,17 @@ class EvaluacionProveedoresApp:
             # In the `_display_evaluation_by_provider` method, it's `all_service_types_for_provider`.
             # We can retrieve it from the session state if needed, or simply re-calculate.
             # For simplicity, let's directly re-calculate from df_filtered_by_provider if needed here.
-            # This assumes df_filtered_by_provider is accessible or can be recreated.
             
             # Recreate all_service_types_for_provider based on the selected provider.
             # This is less efficient but ensures correctness if session state is complex.
             if 'df' in st.session_state and st.session_state['df'] is not None:
                 current_df_for_provider = st.session_state['df'][
                     st.session_state['df']['PROVEEDOR'] == st.session_state['selected_provider_eval']
-                ]
+                ] if 'PROVEEDOR' in st.session_state['df'].columns else pd.DataFrame()
+                
                 all_service_types_for_current_provider = sorted(
                     current_df_for_provider['TIPO DE SERVICIO'].dropna().unique().tolist()
-                )
+                ) if 'TIPO DE SERVICIO' in current_df_for_provider.columns else []
                 plot_df = plot_df.reindex(all_service_types_for_current_provider)
 
 
@@ -1559,9 +1570,29 @@ if st.session_state['page'] == 'upload':
     if uploaded_file:
         st.info("Archivo cargando y procesando. Esto puede tardar unos segundos...")
         try:
-            df = load_and_merge_data(uploaded_file)
+            # Usamos io.BytesIO para pasar el archivo como un buffer en memoria
+            # Esto es crucial para que read_excel pueda leer múltiples hojas del mismo archivo
+            # sin tener que guardarlo en el disco del servidor de Streamlit.
+            file_buffer = io.BytesIO(uploaded_file.getvalue())
+
+            df = load_and_merge_data(file_buffer)
+
+            # --- Procesamiento adicional ---
+            # Eliminar registros cuyo 'Status del sistema' contenga "PTBO"
+            if "status_del_sistema" in df.columns:
+                initial_rows = len(df)
+                df = df[~df["status_del_sistema"].str.contains("PTBO", case=False, na=False)]
+                st.info(f"Se eliminaron {initial_rows - len(df)} registros con 'PTBO' en 'Status del sistema'.")
+
+            # Dejar solo una fila con coste por cada aviso
+            if 'aviso' in df.columns and 'costes_totreales' in df.columns:
+                df['costes_totreales'] = df.groupby('aviso')['costes_totreales'].transform(
+                    lambda x: [x.iloc[0]] + [0]*(len(x)-1)
+                )
+
             st.session_state['df'] = df
             st.success("¡Datos cargados y procesados exitosamente!")
+            st.write(f"**Filas finales:** {len(df)} – **Columnas:** {len(df.columns)}")
             st.write("Vista previa de los datos:")
             st.dataframe(df.head())
             st.info("Ahora puedes navegar a las secciones de análisis y evaluación desde el menú lateral.")
@@ -1570,6 +1601,8 @@ if st.session_state['page'] == 'upload':
         except Exception as e:
             st.error(f"Hubo un error al procesar el archivo: {e}")
             st.warning("Asegúrate de que el archivo Excel contenga las hojas correctas y los formatos esperados.")
+            st.exception(e) # Muestra el traceback completo para depuración
+
 
 elif st.session_state['page'] == 'costos_avisos':
     if 'df' in st.session_state and st.session_state['df'] is not None:
@@ -1584,14 +1617,3 @@ elif st.session_state['page'] == 'evaluacion':
         eval_app.display_evaluation_form()
     else:
         st.warning("Por favor, carga los datos primero desde la sección 'Cargar Datos'.")
-
- # Mostrar datos
-    st.dataframe(df_final)
-
-    # Botón para descargar
-    st.download_button(
-        label="📥 Descargar Excel consolidado",
-        data=excel_bytes,
-        file_name="datos_consolidados.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
