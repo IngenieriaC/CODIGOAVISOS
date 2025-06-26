@@ -1385,10 +1385,6 @@ class EvaluacionProveedoresApp:
         st.markdown("### Resumen de Calificación por Pregunta")
         st.dataframe(summary_df_calificacion.style.format(precision=0, na_rep='N/A'), use_container_width=True)
 
-        # Generate Ranking (or single score for by_provider mode)
-        # Note: 'total_scores_by_provider' (or service type) comes from the current evaluation context
-        ranking_df = pd.DataFrame({'Puntuación Total': total_scores_by_provider}).sort_values('Puntuación Total', ascending=False)
-        ranking_df.index.name = col_name_for_scores
         
         if mode == 'by_service_type':
             ranking_df['Ranking'] = ranking_df['Puntuación Total'].rank(method='min', ascending=False).astype(int)
