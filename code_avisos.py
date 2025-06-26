@@ -339,7 +339,13 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
         return "Otros"
 
     df["description_category"] = df['descripcion'].apply(extract_description_category)
-    return df
+           # Convertir DataFrame a Excel en memoria
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            df.to_excel(writer, index=False, sheet_name='Datos Consolidados')
+        output.seek(0)  # Importante: volver al inicio del archivo
+    
+        return df, output
 
 # --- DEFINICIÓN DE PREGUNTAS PARA EVALUACIÓN ---
 preguntas = [
@@ -1578,3 +1584,14 @@ elif st.session_state['page'] == 'evaluacion':
         eval_app.display_evaluation_form()
     else:
         st.warning("Por favor, carga los datos primero desde la sección 'Cargar Datos'.")
+
+ # Mostrar datos
+    st.dataframe(df_final)
+
+    # Botón para descargar
+    st.download_button(
+        label="📥 Descargar Excel consolidado",
+        data=excel_bytes,
+        file_name="datos_consolidados.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
