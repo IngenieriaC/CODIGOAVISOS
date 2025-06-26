@@ -1277,15 +1277,18 @@ class EvaluacionProveedoresApp:
             st.info("No hay métricas de desempeño disponibles por tipo de servicio para este proveedor.")
 
 
-    def generar_resumen_evaluacion(self, df_filtered, selected_entity, mode):
-    # Add this line at the very beginning of the function:
-        total_scores_by_provider = {}
+    def generar_resumen_evaluacion(self, df_filtered, selected_entity, mode, preguntas):
+        # Initialize a variable that will hold the scores for ranking,
+        # which will be assigned based on the mode.
+        scores_for_ranking = {} # Initialize with an empty dictionary
+
         if mode == 'by_provider':
             identifier = f"Evaluación por Proveedor: {selected_entity}"
         elif mode == 'by_service_type':
             identifier = f"Evaluación por Tipo de Servicio: {selected_entity}"
         else:
             identifier = "Evaluación General" # A default identifier if mode is neither
+
         if not st.session_state.get('all_evaluation_widgets_map'):
             st.warning("No hay evaluaciones para resumir. Selecciona un modo de evaluación y completa las evaluaciones.")
             return
@@ -1319,8 +1322,10 @@ class EvaluacionProveedoresApp:
                 summary_data.append(row)
             summary_df_calificacion = pd.DataFrame(summary_data)
             summary_df_calificacion.set_index(['Categoría', 'Pregunta'], inplace=True)
-            total_scores_by_provider = summary_df_calificacion.sum(numeric_only=True)
-            summary_df_calificacion.loc[('Total General', 'Puntuación Total')] = total_scores_by_provider.astype(int) # Ensure int
+            
+            # Assign to the generic scores_for_ranking variable
+            scores_for_ranking = summary_df_calificacion.sum(numeric_only=True)
+            summary_df_calificacion.loc[('Total General', 'Puntuación Total')] = scores_for_ranking.astype(int) # Ensure int
 
             # Quantitative Metrics
             metrics = st.session_state.get('current_service_type_metrics', {})
@@ -1361,9 +1366,10 @@ class EvaluacionProveedoresApp:
                 summary_data.append(row)
             summary_df_calificacion = pd.DataFrame(summary_data)
             summary_df_calificacion.set_index(['Categoría', 'Pregunta'], inplace=True)
-            total_scores_by_service_type = summary_df_calificacion.sum(numeric_only=True)
-            summary_df_calificacion.loc[('Total General', 'Puntuación Total')] = total_scores_by_service_type.astype(int) # Ensure int
-
+            
+            # Assign to the generic scores_for_ranking variable
+            scores_for_ranking = summary_df_calificacion.sum(numeric_only=True)
+            summary_df_calificacion.loc[('Total General', 'Puntuación Total')] = scores_for_ranking.astype(int) # Ensure int
 
             # Quantitative Metrics
             metrics_per_service_type = st.session_state.get('current_provider_service_type_metrics', {})
@@ -1381,7 +1387,11 @@ class EvaluacionProveedoresApp:
             quantitative_metrics_df = pd.DataFrame(quantitative_metrics_data)
             col_name_for_scores = 'Tipo de Servicio'
             ranking_title = f"Puntuación por Tipo de Servicio para el Proveedor: {prov_identifier}"
-
+        else:
+            # Handle the case where mode is neither 'by_service_type' nor 'by_provider'
+            # You might want to define a default behavior or raise an error
+            st.warning("Modo de evaluación no reconocido.")
+            return
 
         if summary_df_calificacion.empty:
             st.warning("No se pudieron generar datos de resumen de evaluación.")
@@ -1392,8 +1402,8 @@ class EvaluacionProveedoresApp:
         st.dataframe(summary_df_calificacion.style.format(precision=0, na_rep='N/A'), use_container_width=True)
 
         # Generate Ranking (or single score for by_provider mode)
-        # Note: 'total_scores_by_provider' (or service type) comes from the current evaluation context
-        ranking_df = pd.DataFrame({'Puntuación Total': total_scores_by_provider}).sort_values('Puntuación Total', ascending=False)
+        # Use the generic scores_for_ranking variable here
+        ranking_df = pd.DataFrame({'Puntuación Total': scores_for_ranking}).sort_values('Puntuación Total', ascending=False)
         ranking_df.index.name = col_name_for_scores
         
         if mode == 'by_service_type':
@@ -1421,16 +1431,39 @@ class EvaluacionProveedoresApp:
             # Optional: Auto-adjust column widths for better readability
             for sheet_name in writer.sheets:
                 worksheet = writer.sheets[sheet_name]
-                for idx, col in enumerate(summary_df_calificacion.columns):
-                    max_len = max(
-                        len(str(col)),
-                        (summary_df_calificacion[col].astype(str).map(len).max() if not summary_df_calificacion[col].empty else 0)
-                    ) + 2
-                    worksheet.set_column(idx, idx, max_len)
-                # For MultiIndex, adjust first few columns manually if needed
-                if sheet_name == 'Calificaciones por Pregunta':
+                # Check if worksheet has columns before trying to iterate through them
+                if not worksheet.dim_rowmax and not worksheet.dim_colmax:
+                    continue # Skip if the sheet is empty
+
+                # For dataframes without MultiIndex, adjust columns based on content
+                if sheet_name in ['Ranking', 'Metricas Cuantitativas']:
+                    df_to_adjust = None
+                    if sheet_name == 'Ranking':
+                        df_to_adjust = ranking_df
+                    elif sheet_name == 'Metricas Cuantitativas':
+                        df_to_adjust = quantitative_metrics_df
+                    
+                    if df_to_adjust is not None:
+                        for idx, col in enumerate(df_to_adjust.columns):
+                            max_len = max(
+                                len(str(col)),
+                                (df_to_adjust[col].astype(str).map(len).max() if not df_to_adjust[col].empty else 0)
+                            ) + 2
+                            worksheet.set_column(idx, idx, max_len)
+                elif sheet_name == 'Calificaciones por Pregunta':
+                    # Special handling for summary_df_calificacion with MultiIndex
+                    # Adjust column widths for Categoría and Pregunta
                     worksheet.set_column(0, 0, 20) # Categoría
                     worksheet.set_column(1, 1, 60) # Pregunta
+                    # Adjust other columns dynamically
+                    for idx, col in enumerate(summary_df_calificacion.columns):
+                        # Add 2 for the MultiIndex columns
+                        col_idx_in_excel = idx + 2 
+                        max_len = max(
+                            len(str(col)),
+                            (summary_df_calificacion[col].astype(str).map(len).max() if not summary_df_calificacion[col].empty else 0)
+                        ) + 2
+                        worksheet.set_column(col_idx_in_excel, col_idx_in_excel, max_len)
 
         st.download_button(
             label="Descargar Resumen de Evaluación como Excel",
