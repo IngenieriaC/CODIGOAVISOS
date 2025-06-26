@@ -339,6 +339,16 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
         return "Otros"
 
     df["description_category"] = df['descripcion'].apply(extract_description_category)
+    # --- Agrupar costos por aviso y dejar suma solo en primera fila ---
+
+    # Asegurar orden por aviso para consistencia
+    df.sort_values(by=['aviso'], inplace=True)
+    
+    # Agrupar por 'aviso' y distribuir suma de costos solo en la primera fila
+    df['costes_totreales'] = df.groupby('aviso')['costes_totreales'].transform(
+        lambda x: [x.sum()] + [0]*(len(x) - 1)
+    )
+
     return df
 
 # --- DEFINICIÓN DE PREGUNTAS PARA EVALUACIÓN ---
