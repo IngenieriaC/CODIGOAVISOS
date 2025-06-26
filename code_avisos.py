@@ -1395,7 +1395,6 @@ class EvaluacionProveedoresApp:
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
             summary_df_calificacion.to_excel(writer, sheet_name='Calificaciones por Pregunta')
-            ranking_df.to_excel(writer, sheet_name='Ranking')
             quantitative_metrics_df.to_excel(writer, sheet_name='Metricas Cuantitativas', index=False)
 
             # Optional: Auto-adjust column widths for better readability
