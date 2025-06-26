@@ -8,13 +8,12 @@ import seaborn as sns
 import re
 import io
 import numpy as np
-
 # --- Configuración de la página (temática Sura) ---
 st.set_page_config(
-    page_title="Gerencia de Gestión Administrativa - Sura",
+    page_title="Gestión Administrativa - Sura",
     layout="wide",
     initial_sidebar_state="expanded",
-    # Icono de la página (opcional, puedes cambiar '📈' por tu icono)
+    # Icono de la página (opcional, puedes cambiar '📈' por el tuyo)
     # Abre este enlace para ver más emojis: https://www.webfx.com/tools/emoji-cheat-sheet/
 )
 
@@ -70,12 +69,68 @@ st.markdown(
 # --- Bienvenida y encabezado ---
 st.title("¡Hola, usuario Sura! 👋")
 st.markdown("---")
-st.header("Proyecto de **Gerencia de Gestión Administrativa** en Ingeniería Clínica")
+st.header("Proyecto de **Gestión Administrativa** en Ingeniería Clínica")
 st.markdown("""
     Aquí podrás **analizar y gestionar los datos de avisos** para optimizar los procesos. Creado por Naida López Aprendiz Universitaria.
 """)
 # Set a nice style for plots
 sns.set_style('whitegrid')
+
+# --- Configuración de la página (temática Sura) ---
+st.set_page_config(
+    page_title="Gerencia de Gestión Administrativa - Sura",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+# Estilos CSS para ambientar en amarillo, blanco y azul rey
+st.markdown(
+    """
+    <style>
+    /* Estilos generales del fondo con degradado */
+    .stApp {
+        background: linear-gradient(to right, #FFFFFF, #FFFACD, #4169E1); /* Blanco, Amarillo claro (Cream), Azul Rey */
+        color: #333333; /* Color de texto general */
+    }
+    /* Sidebar */
+    .st-emotion-cache-1oe6z58 { /* Esta clase puede cambiar en futuras versiones de Streamlit */
+        background-color: #F0F8FF; /* Azul claro para la sidebar */
+    }
+    /* Títulos */
+    h1, h2, h3, h4, h5, h6 {
+        color: #4169E1; /* Azul Rey para los títulos */
+    }
+    /* Botones */
+    .stButton>button {
+        background-color: #4169E1; /* Azul Rey para los botones */
+        color: white;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 0.5rem;
+        transition: background-color 0.3s ease;
+    }
+    .stButton>button:hover {
+        background-color: #F8D568; /* Amarillo para hover */
+        color: #4169E1;
+        border: 1px solid #4169E1;
+    }
+    /* Contenedores de contenido principal */
+    .st-emotion-cache-z5fcl4, .st-emotion-cache-1c7y2kl, .st-emotion-cache-nahz7x { /* Clases genéricas para contenedores */
+        background-color: rgba(255, 255, 255, 0.9); /* Blanco semitransparente */
+        padding: 1.5rem;
+        border-radius: 0.75rem;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        margin-bottom: 1rem;
+    }
+    /* Mejoras para la tabla (dataframe) */
+    .streamlit-dataframe {
+        border-radius: 0.5rem;
+        overflow: hidden; /* Asegura que las esquinas redondeadas se apliquen bien */
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
 # --- Función de carga & unión (optimizada para Streamlit) ---
 @st.cache_data
@@ -287,7 +342,6 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
     return df
 
 # --- DEFINICIÓN DE PREGUNTAS PARA EVALUACIÓN ---
-# These are the questions with their categories and expected score types.
 preguntas = [
     ("Calidad", "¿Las soluciones propuestas son coherentes con el diagnóstico y causa raíz del problema?", "2,1,0,-1"),
     ("Calidad", "¿El trabajo entregado tiene materiales nuevos, originales y de marcas reconocidas?", "2,1,0,-1"),
@@ -317,7 +371,6 @@ preguntas = [
 ]
 
 # --- Definición de las preguntas y rangos DETALLADOS ---
-# This dictionary maps categories, questions, and scores to detailed descriptions.
 rangos_detallados = {
     "Calidad": {
         "¿Las soluciones propuestas son coherentes con el diagnóstico y causa raíz del problema?": {
@@ -408,13 +461,13 @@ rangos_detallados = {
             0: "Igual al promedio de mercado",
             -1: "Por encima del promedio de mercado"
         },
-        "Facilita llegar a una negociación (precios)": { # This question is in rangos_detallados but not in 'preguntas' list. Keep for now.
+        "Facilita llegar a una negociación (precios)": {
             2: "Siempre está dispuesto a negociar de manera flexible",
             1: "En general muestra disposición al diálogo",
             0: "Ocasionalmente permite negociar",
             -1: "Poco o nada dispuesto a negociar"
         },
-        "Pone en consideración contratos y trabajos adjudicados en el último periodo de tiempo": { # This question is in rangos_detallados but not in 'preguntas' list. Keep for now.
+        "Pone en consideración contratos y trabajos adjudicados en el último periodo de tiempo": {
             2: "Siempre toma en cuenta la relación comercial previa",
             1: "Generalmente considera trabajos anteriores",
             0: "Solo ocasionalmente lo toma en cuenta",
@@ -553,336 +606,966 @@ class CostosAvisosApp:
             "Costos por objeto técnico": ("denominacion_de_objeto_tecnico", self.COL_COSTOS_NORMALIZED, "costos"),
             "Avisos por objeto técnico": ("denominacion_de_objeto_tecnico", None, "avisos"),
             "Costos por texto código acción": ("texto_codigo_accion", self.COL_COSTOS_NORMALIZED, "costos"),
-            "Avisos por texto código acción": ("texto_codigo_accion", None, "avisos")
+            "Avisos por texto código acción": ("texto_codigo_accion", None, "avisos"),
+            "Costos por texto de acción": ("texto_de_accion", self.COL_COSTOS_NORMALIZED, "costos"),
+            "Avisos por texto de acción": ("texto_de_accion", None, "avisos"),
+            "Costos por tipo de servicio": ("tipo_de_servicio", self.COL_COSTOS_NORMALIZED, "costos"),
+            "Avisos por tipo de servicio": ("tipo_de_servicio", None, "avisos"),
+            "Costos por categoría de descripción": ("description_category", self.COL_COSTOS_NORMALIZED, "costos"),
+            "Avisos por categoría de descripción": ("description_category", None, "avisos"),
         }
-    
+        
+        # Initialize session state for pagination in analysis
+        if 'analysis_page' not in st.session_state:
+            st.session_state['analysis_page'] = 0
+
+
     def display_costos_avisos_dashboard(self):
-        st.subheader("💰 Costos y Avisos por Categoría")
+        st.title("Análisis de Costos y Avisos")
+
+        # Sidebar filters for Costos y Avisos
+        st.sidebar.markdown("---")
+        st.sidebar.header("Filtros para Análisis")
+        all_providers = ['Todos'] + sorted(self.df['PROVEEDOR'].dropna().unique().tolist())
+        selected_provider_costos = st.sidebar.selectbox("Selecciona Proveedor:", all_providers, key='costos_provider_filter')
+
+        all_service_types = ['Todos'] + sorted(self.df['TIPO DE SERVICIO'].dropna().unique().tolist())
+        selected_service_type_costos = st.sidebar.selectbox("Selecciona Tipo de Servicio:", all_service_types, key='costos_service_type_filter')
+
+        min_date = self.df[self.COL_FECHA_AVISO_NORMALIZED].min().date() if not self.df[self.COL_FECHA_AVISO_NORMALIZED].empty and pd.notna(self.df[self.COL_FECHA_AVISO_NORMALIZED].min()) else pd.to_datetime('2020-01-01').date()
+        max_date = self.df[self.COL_FECHA_AVISO_NORMALIZED].max().date() if not self.df[self.COL_FECHA_AVISO_NORMALIZED].empty and pd.notna(self.df[self.COL_FECHA_AVISO_NORMALIZED].max()) else pd.to_datetime('2024-12-31').date()
+        date_range = st.sidebar.date_input(
+            "Rango de Fechas:",
+            value=(min_date, max_date),
+            min_value=min_date,
+            max_value=max_date,
+            key='costos_date_filter'
+        )
+
+        filtered_df_costos = self.df.copy()
+        if selected_provider_costos != 'Todos':
+            filtered_df_costos = filtered_df_costos[filtered_df_costos['PROVEEDOR'] == selected_provider_costos]
+        if selected_service_type_costos != 'Todos':
+            filtered_df_costos = filtered_df_costos[filtered_df_costos['TIPO DE SERVICIO'] == selected_service_type_costos]
+
+        if len(date_range) == 2:
+            start_date, end_date = date_range
+            filtered_df_costos = filtered_df_costos[
+                (filtered_df_costos[self.COL_FECHA_AVISO_NORMALIZED].dt.date >= start_date) &
+                (filtered_df_costos[self.COL_FECHA_AVISO_NORMALIZED].dt.date <= end_date)
+            ]
+
+        if filtered_df_costos.empty:
+            st.warning("No hay datos para los filtros seleccionados.")
+            return
+
+        st.markdown("### Resumen General de Costos y Avisos")
+
+        total_costos = filtered_df_costos[self.COL_COSTOS_NORMALIZED].sum()
+        total_avisos = filtered_df_costos[self.COL_AVISO_NORMALIZED].nunique()
+        avg_costo_por_aviso = total_costos / total_avisos if total_avisos > 0 else 0
+
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Total de Costos Reales", f"${total_costos:,.2f} COP")
+        with col2:
+            st.metric("Total de Avisos Únicos", f"{total_avisos:,}")
+        with col3:
+            st.metric("Costo Promedio por Aviso", f"${avg_costo_por_aviso:,.2f} COP")
 
         st.markdown("---")
+        st.markdown("### Análisis Detallado")
 
-        with st.sidebar:
-            st.header("Menú de Análisis")
-            st.markdown("---")
-            analysis_choice = st.radio(
-                "Selecciona el tipo de análisis:",
-                list(self.opciones_menu.keys())
-            )
-        
-        selected_col, value_col, analysis_type = self.opciones_menu[analysis_choice]
+        # Selectbox for analysis type
+        selected_analysis_key = st.selectbox(
+            "Selecciona el tipo de análisis a visualizar:",
+            list(self.opciones_menu.keys()),
+            key='analysis_type_selector'
+        )
 
-        if selected_col not in self.df.columns:
-            st.error(f"La columna '{selected_col}' no se encuentra en los datos. Por favor, revisa la carga del archivo.")
-            return
+        group_col, value_col, analysis_type = self.opciones_menu[selected_analysis_key]
 
-        st.write(f"Análisis actual: **{analysis_choice}**")
-        
-        # Filtros
-        col1_filters, col2_filters = st.columns(2)
-
-        with col1_filters:
-            available_years = sorted(self.df['año'].dropna().unique().astype(int).tolist())
-            selected_years = st.multiselect("Filtrar por Año:", available_years, default=available_years)
-
-        with col2_filters:
-            available_months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
-            # Map original English month names to Spanish for display
-            meses_espanol = {
-                'January': 'Enero', 'February': 'Febrero', 'March': 'Marzo', 'April': 'Abril',
-                'May': 'Mayo', 'June': 'Junio', 'July': 'Julio', 'August': 'Agosto',
-                'September': 'Septiembre', 'October': 'Octubre', 'November': 'Noviembre',
-                'December': 'Diciembre'
-            }
-            # Create a list of Spanish month names to display in the multiselect
-            available_months_display = [meses_espanol[m] for m in available_months]
-            
-            # Get selected month names in Spanish
-            selected_months_display = st.multiselect("Filtrar por Mes:", available_months_display, default=available_months_display)
-            
-            # Convert selected Spanish month names back to English for filtering
-            selected_months = [eng_month for eng_month, sp_month in meses_espanol.items() if sp_month in selected_months_display]
-
-
-        filtered_df = self.df[
-            (self.df['año'].isin(selected_years)) &
-            (self.df['mes'].isin(selected_months))
-        ]
-
-        if filtered_df.empty:
-            st.warning("No hay datos para la selección actual de filtros.")
-            return
-
-        # Display filtered data
         if analysis_type == "costos":
-            df_grouped = filtered_df.groupby(selected_col)[value_col].sum().sort_values(ascending=False).reset_index()
-            df_grouped.columns = [selected_col, 'Total Costos Reales']
-            st.subheader(f"Top 10 {analysis_choice}")
-            st.dataframe(df_grouped.head(10))
-
-            fig, ax = plt.subplots(figsize=(12, 6))
-            sns.barplot(x='Total Costos Reales', y=selected_col, data=df_grouped.head(10), ax=ax, palette='viridis')
-            ax.set_title(f'Top 10 {analysis_choice}', fontsize=16)
-            ax.set_xlabel('Total Costos Reales ($)', fontsize=12)
-            ax.set_ylabel(selected_col.replace('_', ' ').title(), fontsize=12)
-            plt.tight_layout()
-            st.pyplot(fig)
-            plt.close(fig)
-
+            st.markdown(f"#### {selected_analysis_key}")
+            # Get full sorted data for pagination
+            full_data_sorted = filtered_df_costos.groupby(group_col)[value_col].sum().sort_values(ascending=False)
+            title = f'Top {selected_analysis_key}'
+            xlabel = group_col.replace("_", " ").title()
+            ylabel = 'Costo Total ($COP)'
+            self._display_paged_table_and_plot(full_data_sorted, title, xlabel, ylabel, "costos")
         elif analysis_type == "avisos":
-            df_grouped = filtered_df.groupby(selected_col)[self.COL_AVISO_NORMALIZED].nunique().sort_values(ascending=False).reset_index()
-            df_grouped.columns = [selected_col, 'Número de Avisos']
-            st.subheader(f"Top 10 {analysis_choice}")
-            st.dataframe(df_grouped.head(10))
-
-            fig, ax = plt.subplots(figsize=(12, 6))
-            sns.barplot(x='Número de Avisos', y=selected_col, data=df_grouped.head(10), ax=ax, palette='plasma')
-            ax.set_title(f'Top 10 {analysis_choice}', fontsize=16)
-            ax.set_xlabel('Número de Avisos', fontsize=12)
-            ax.set_ylabel(selected_col.replace('_', ' ').title(), fontsize=12)
-            plt.tight_layout()
-            st.pyplot(fig)
-            plt.close(fig)
+            st.markdown(f"#### {selected_analysis_key}")
+            # Get full sorted data for pagination
+            full_data_sorted = filtered_df_costos.groupby(group_col)[self.COL_AVISO_NORMALIZED].nunique().sort_values(ascending=False)
+            title = f'Top {selected_analysis_key}'
+            xlabel = group_col.replace("_", " ").title()
+            ylabel = 'Número de Avisos'
+            self._display_paged_table_and_plot(full_data_sorted, title, xlabel, ylabel, "avisos", color_palette='viridis')
 
         st.markdown("---")
-        st.subheader("Tendencias de Costos y Avisos a lo largo del tiempo")
+        st.markdown("### Tendencia Mensual de Costos y Avisos")
+        df_monthly = filtered_df_costos.set_index(self.COL_FECHA_AVISO_NORMALIZED).resample('M').agg(
+            Total_Costos=(self.COL_COSTOS_NORMALIZED, 'sum'),
+            Num_Avisos=(self.COL_AVISO_NORMALIZED, 'nunique')
+        ).fillna(0)
 
-        # Monthly trends
-        monthly_costs = filtered_df.groupby('fecha_de_aviso')['costes_totreales'].sum().resample('M').sum()
-        monthly_avisos = filtered_df.groupby('fecha_de_aviso')['aviso'].nunique().resample('M').sum()
+        fig_monthly, ax_monthly1 = plt.subplots(figsize=(12, 6))
+        color = 'tab:red'
+        ax_monthly1.set_xlabel('Fecha')
+        ax_monthly1.set_ylabel('Total Costos ($COP)', color=color)
+        ax_monthly1.plot(df_monthly.index, df_monthly['Total_Costos'], color=color, marker='o')
+        ax_monthly1.tick_params(axis='y', labelcolor=color)
 
-        col_trend1, col_trend2 = st.columns(2)
+        ax_monthly2 = ax_monthly1.twinx()
+        color = 'tab:blue'
+        ax_monthly2.set_ylabel('Número de Avisos', color=color)
+        ax_monthly2.plot(df_monthly.index, df_monthly['Num_Avisos'], color=color, marker='x', linestyle='--')
+        ax_monthly2.tick_params(axis='y', labelcolor=color)
 
-        with col_trend1:
-            st.write("### Costos Mensuales")
-            fig_cost, ax_cost = plt.subplots(figsize=(10, 5))
-            ax_cost.plot(monthly_costs.index, monthly_costs.values, marker='o', linestyle='-', color='skyblue')
-            ax_cost.set_title("Tendencia de Costos Mensuales")
-            ax_cost.set_xlabel("Fecha")
-            ax_cost.set_ylabel("Costos Totales Reales ($)")
-            ax_cost.tick_params(axis='x', rotation=45)
-            ax_cost.grid(True, linestyle='--', alpha=0.7)
-            plt.tight_layout()
-            st.pyplot(fig_cost)
-            plt.close(fig_cost)
+        fig_monthly.autofmt_xdate()
+        plt.title('Tendencia Mensual de Costos y Avisos')
+        st.pyplot(fig_monthly)
 
-        with col_trend2:
-            st.write("### Avisos Mensuales")
-            fig_avisos, ax_avisos = plt.subplots(figsize=(10, 5))
-            ax_avisos.plot(monthly_avisos.index, monthly_avisos.values, marker='o', linestyle='-', color='salmon')
-            ax_avisos.set_title("Tendencia de Avisos Mensuales")
-            ax_avisos.set_xlabel("Fecha")
-            ax_avisos.set_ylabel("Número de Avisos")
-            ax_avisos.tick_params(axis='x', rotation=45)
-            ax_avisos.grid(True, linestyle='--', alpha=0.7)
-            plt.tight_layout()
-            st.pyplot(fig_avisos)
-            plt.close(fig_avisos)
+        st.markdown("### Detalle de Datos Filtrados (Primeras 100 Filas)")
+        st.dataframe(filtered_df_costos[[self.COL_AVISO_NORMALIZED, self.COL_FECHA_AVISO_NORMALIZED, 'PROVEEDOR', 'TIPO DE SERVICIO', 'descripcion', self.COL_COSTOS_NORMALIZED, 'TIEMPO PARADA']].head(100))
 
-        st.markdown("---")
-        st.subheader("Análisis de Costos por Tipo de Servicio")
-        if 'TIPO DE SERVICIO' in filtered_df.columns:
-            service_cost = filtered_df.groupby('TIPO DE SERVICIO')['costes_totreales'].sum().sort_values(ascending=False)
-            fig_service_cost, ax_service_cost = plt.subplots(figsize=(10, 6))
-            sns.barplot(x=service_cost.values, y=service_cost.index, ax=ax_service_cost, palette='coolwarm')
-            ax_service_cost.set_title('Costos Totales por Tipo de Servicio', fontsize=16)
-            ax_service_cost.set_xlabel('Costos Totales Reales ($)', fontsize=12)
-            ax_service_cost.set_ylabel('Tipo de Servicio', fontsize=12)
-            plt.tight_layout()
-            st.pyplot(fig_service_cost)
-            plt.close(fig_service_cost)
+
+    def _plot_bar_chart(self, data, title, xlabel, ylabel, color_palette='coolwarm'):
+        fig, ax = plt.subplots(figsize=(10, 6))
+        sns.barplot(x=data.index, y=data.values, ax=ax, palette=color_palette)
+        ax.set_title(title)
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
+        ax.ticklabel_format(style='plain', axis='y')
+        plt.xticks(rotation=45, ha='right')
+        plt.tight_layout() # Added for better label spacing
+        st.pyplot(fig)
+        
+    def _display_paged_table_and_plot(self, full_data_sorted, title, xlabel, ylabel, analysis_type, color_palette='coolwarm'):
+        items_per_page = 10
+        total_items = len(full_data_sorted)
+        max_page = max(0, (total_items - 1) // items_per_page)
+
+        # Ensure current page is valid
+        if st.session_state['analysis_page'] > max_page:
+            st.session_state['analysis_page'] = max_page
+        if st.session_state['analysis_page'] < 0:
+            st.session_state['analysis_page'] = 0
+
+        start_index = st.session_state['analysis_page'] * items_per_page
+        end_index = min(start_index + items_per_page, total_items)
+        data_to_display = full_data_sorted.iloc[start_index:end_index]
+
+        st.markdown("#### Tabla de Datos")
+        # Format costs in the table if it's a costs analysis
+        if analysis_type == "costos":
+            formatted_df = data_to_display.to_frame(name=ylabel.replace(" ($COP)", "").strip()) # Remove currency from column name for formatting
+            formatted_df[formatted_df.columns[0]] = formatted_df[formatted_df.columns[0]].apply(lambda x: f"${x:,.2f} COP")
+            st.dataframe(formatted_df, use_container_width=True)
         else:
-            st.warning("La columna 'TIPO DE SERVICIO' no está disponible para este análisis.")
+            st.dataframe(data_to_display.to_frame(), use_container_width=True) # Convert series to dataframe for better display
 
-# --- EVALUACIÓN PROVEEDORES APP ---
+        col_prev_table, col_next_table = st.columns([1,1])
+        with col_prev_table:
+            if st.button("Anterior (Tabla)", key=f"prev_analysis_page_{analysis_type}", disabled=(st.session_state['analysis_page'] == 0)):
+                st.session_state['analysis_page'] -= 1
+                st.rerun()
+        with col_next_table:
+            if st.button("Siguiente (Tabla)", key=f"next_analysis_page_{analysis_type}", disabled=(end_index >= total_items)):
+                st.session_state['analysis_page'] += 1
+                st.rerun()
+
+        st.markdown("#### Gráfico")
+        self._plot_bar_chart(data_to_display, title, xlabel, ylabel, color_palette)
+
+
+# --- EVALUATION APP FOR STREAMLIT ---
 class EvaluacionProveedoresApp:
-    def __init__(self, df, preguntas_evaluacion, rangos_detallados_evaluacion):
+    def __init__(self, df):
         self.df = df
-        self.preguntas_evaluacion = preguntas_evaluacion
-        self.rangos_detallados_evaluacion = rangos_detallados_evaluacion
+        # Initialize session state for this class if not already done
+        if 'all_evaluation_widgets_map' not in st.session_state:
+            st.session_state['all_evaluation_widgets_map'] = {}
+        if 'evaluation_page_providers' not in st.session_state: # Page for providers
+            st.session_state['evaluation_page_providers'] = 0
+        if 'current_service_type_metrics' not in st.session_state:
+            st.session_state['current_service_type_metrics'] = {} # Metrics now store per-provider for selected service type
+        if 'all_service_providers' not in st.session_state:
+            st.session_state['all_service_providers'] = []
+        if 'selected_service_type' not in st.session_state:
+             st.session_state['selected_service_type'] = "Seleccionar..." # Initial dummy value
+        if 'evaluation_mode' not in st.session_state:
+            st.session_state['evaluation_mode'] = 'by_service_type' # Default mode
+        if 'selected_provider_eval' not in st.session_state:
+            st.session_state['selected_provider_eval'] = "Seleccionar..."
+        if 'evaluation_page_service_types_for_provider' not in st.session_state:
+            st.session_state['evaluation_page_service_types_for_provider'] = 0
+        if 'current_provider_service_type_metrics' not in st.session_state:
+            st.session_state['current_provider_service_type_metrics'] = {}
 
-    def display_evaluation_dashboard(self):
-        st.subheader("📊 Evaluación de Proveedores")
 
-        # Get unique suppliers for selection
-        proveedores = self.df['PROVEEDOR'].unique()
-        selected_proveedor = st.selectbox("Selecciona un proveedor para evaluar:", proveedores)
+    def display_evaluation_form(self):
+        st.title("Evaluación de Proveedores")
+
+        st.sidebar.markdown("---")
+        st.sidebar.header("Modo de Evaluación")
+        evaluation_mode = st.sidebar.radio(
+            "Selecciona cómo quieres evaluar:",
+            options=['Por Tipo de Servicio', 'Por Proveedor'],
+            key='evaluation_mode_selector',
+            index=0 if st.session_state['evaluation_mode'] == 'by_service_type' else 1
+        )
+
+        # Update session state based on radio button selection
+        new_mode = 'by_service_type' if evaluation_mode == 'Por Tipo de Servicio' else 'by_provider'
+        if st.session_state['evaluation_mode'] != new_mode:
+            st.session_state['evaluation_mode'] = new_mode
+            st.session_state['evaluation_page_providers'] = 0 # Reset page
+            st.session_state['selected_service_type'] = "Seleccionar..." # Reset service type
+            st.session_state['selected_provider_eval'] = "Seleccionar..." # Reset provider
+            st.session_state['evaluation_page_service_types_for_provider'] = 0
+            st.rerun()
+
+        if st.session_state['evaluation_mode'] == 'by_service_type':
+            self._display_evaluation_by_service_type()
+        elif st.session_state['evaluation_mode'] == 'by_provider':
+            self._display_evaluation_by_provider()
+
+
+    def _display_evaluation_by_service_type(self):
+        st.subheader("Evaluación por Tipo de Servicio")
+        
+        all_service_types_eval = sorted(self.df['TIPO DE SERVICIO'].dropna().unique().tolist())
+        service_type_options = ["Seleccionar..."] + all_service_types_eval
+        
+        try:
+            current_index = service_type_options.index(st.session_state['selected_service_type'])
+        except ValueError:
+            current_index = 0
+
+        selected_service_type_eval = st.sidebar.selectbox(
+            "Selecciona Tipo de Servicio para Evaluar:",
+            options=service_type_options,
+            index=current_index,
+            key='eval_service_type_selector_inner'
+        )
+
+        if st.session_state['selected_service_type'] != selected_service_type_eval:
+            st.session_state['selected_service_type'] = selected_service_type_eval
+            st.session_state['evaluation_page_providers'] = 0
+            st.session_state['all_evaluation_widgets_map'] = {} # Clear map on service type change
+            st.rerun()
+
+        if st.session_state['selected_service_type'] == "Seleccionar...":
+            st.info("Por favor, selecciona un 'Tipo de Servicio' en la barra lateral para comenzar la evaluación.")
+            return
+
+        df_filtered_by_service = self.df[self.df['TIPO DE SERVICIO'] == st.session_state['selected_service_type']]
+        
+        # Get unique providers for the selected service type
+        all_service_providers = sorted(df_filtered_by_service['PROVEEDOR'].dropna().unique().tolist())
+        st.session_state['all_service_providers'] = all_service_providers # Update global list for plots
+
+        if not all_service_providers:
+            st.info(f"No se encontraron proveedores para el tipo de servicio '{st.session_state['selected_service_type']}'.")
+            st.session_state['all_evaluation_widgets_map'] = {}
+            return
+
+        # Recalculate metrics for all providers under this service type
+        cnt_p, cost_p, mttr_p, mtbf_p, disp_p, rend_p = calcular_indicadores(df_filtered_by_service, group_col='PROVEEDOR')
+        st.session_state['current_service_type_metrics'] = {
+            'cnt': cnt_p, 'cost': cost_p, 'mttr': mttr_p,
+            'mtbf': mtbf_p, 'disp': disp_p, 'rend': rend_p
+        }
+
+        items_per_page = 5 # Number of providers to show per page
+        total_providers = len(all_service_providers)
+        max_page = max(0, (total_providers - 1) // items_per_page)
+
+        # Ensure current page is valid after filters or service type change
+        if st.session_state['evaluation_page_providers'] > max_page:
+            st.session_state['evaluation_page_providers'] = max_page
+        if st.session_state['evaluation_page_providers'] < 0:
+            st.session_state['evaluation_page_providers'] = 0
+
+        start_index = st.session_state['evaluation_page_providers'] * items_per_page
+        end_index = min(start_index + items_per_page, total_providers)
+        providers_on_page = all_service_providers[start_index:end_index]
+
+        if not providers_on_page:
+            st.info("No hay proveedores para mostrar en esta página para el tipo de servicio seleccionado.")
+            st.session_state['all_evaluation_widgets_map'] = {}
+            return
+
+        st.markdown("---") # Visual separator
+        st.markdown("### Calificación de Preguntas por Proveedor")
+        st.info("Utiliza los selectores para asignar una puntuación a cada pregunta por proveedor.")
+
+        # Display provider mapping for the current page
+        with st.expander("Ver mapeo de Proveedores en esta página"):
+            if providers_on_page:
+                for prov_val in providers_on_page:
+                    idx = all_service_providers.index(prov_val) + 1
+                    st.write(f"**Proveedor {idx}:** `{prov_val}`")
+            else:
+                st.write("No hay proveedores en esta página para mapear.")
+
+        # Create columns dynamically for questions and providers
+        col_widths = [0.4] + [(0.6 / len(providers_on_page)) for _ in providers_on_page]
+        cols = st.columns(col_widths)
+
+        # Header row
+        with cols[0]:
+            st.write("**Pregunta**")
+        for i, prov_label in enumerate(providers_on_page):
+            with cols[i+1]:
+                global_idx = all_service_providers.index(prov_label) + 1
+                st.write(f"**Proveedor {global_idx}**")
+                st.markdown(f"<p style='font-size: small; text-align: center;'>({prov_label})</p>", unsafe_allow_html=True) # Smaller label
+                st.write(" ") # Add spacing for alignment with selectboxes below
+
+        # Questions and Selectboxes/Scores
+        for cat, texto, escala in preguntas:
+            with cols[0]:
+                st.markdown(f"**[{cat}]** {texto}")
+
+            for i, prov_original in enumerate(providers_on_page):
+                with cols[i+1]:
+                    # Key format: {evaluation_mode}-{service_type/provider_identifier}-{category}-{question_text}-{provider_name (if by service type)}
+                    # For by_service_type mode, key is {service_type}-{category}-{question_text}-{provider_name}
+                    unique_key = f"{st.session_state['evaluation_mode']}-{st.session_state['selected_service_type']}-{cat}-{texto}-{prov_original}"
+                    if escala == "auto":
+                        val = 0 # Default value if no specific calculation applies
+                        metrics = st.session_state['current_service_type_metrics']
+
+                        # Access provider-specific metrics within the selected service type
+                        disp_prov = metrics.get('disp', pd.Series()).get(prov_original, np.nan)
+                        mttr_prov = metrics.get('mttr', pd.Series()).get(prov_original, np.nan)
+                        mtbf_prov = metrics.get('mtbf', pd.Series()).get(prov_original, np.nan)
+                        rend_prov = metrics.get('rend', pd.Series()).get(prov_original, 'No Aplica')
+
+                        if 'Disponibilidad' in texto and not pd.isna(disp_prov):
+                            val = 2 if disp_prov >= 98 else (1 if disp_prov >= 75 else 0)
+                        elif 'MTTR' in texto and not pd.isna(mttr_prov):
+                            val = 2 if mttr_prov <= 5 else (1 if mttr_prov <= 20 else 0)
+                        elif 'MTBF' in texto and not pd.isna(mtbf_prov):
+                            val = 2 if mtbf_prov > 1000 else (1 if mtbf_prov >= 100 else 0)
+                        elif 'Rendimiento' in texto:
+                            if rend_prov == 'Alto':
+                                val = 2
+                            elif rend_prov == 'Medio':
+                                val = 1
+                            elif rend_prov == 'Bajo':
+                                val = 0
+                        
+                        st.write(f"**{val}**") # Display the numerical score for auto questions
+                        
+                        # Display the detailed description for the auto-calculated score if available
+                        if cat in rangos_detallados and texto in rangos_detallados[cat] and val in rangos_detallados[cat][texto]:
+                             st.markdown(f"<p style='font-size: smaller; color: grey;'>({rangos_detallados[cat][texto][val]})</p>", unsafe_allow_html=True)
+                        else:
+                            st.markdown(f"<p style='font-size: smaller; color: grey;'>(Valor calculado automáticamente)</p>", unsafe_allow_html=True)
+
+
+                        # Store fixed value in session state to persist
+                        st.session_state['all_evaluation_widgets_map'][unique_key] = val
+                    else:
+                        # Get detailed options for manual questions
+                        if cat in rangos_detallados and texto in rangos_detallados[cat]:
+                            # Map numerical scores to their descriptions for the selectbox
+                            options_dict = rangos_detallados[cat][texto]
+                            # Create a list of (value, description) tuples, sorted by value descending for display
+                            sorted_options = sorted(options_dict.items(), key=lambda item: item[0], reverse=True)
+                            
+                            # Create a list of descriptions for the selectbox
+                            display_options = [desc for val, desc in sorted_options]
+                            # Create a mapping from description back to value
+                            desc_to_value_map = {desc: val for val, desc in sorted_options}
+                            
+                            current_value = st.session_state['all_evaluation_widgets_map'].get(unique_key, 0) # Get existing value or default to 0
+                            
+                            # Find the current description based on the current_value
+                            current_description = next((desc for val, desc in sorted_options if val == current_value), display_options[0])
+                            
+                            # Get the index of the current_description for the selectbox
+                            try:
+                                current_index = display_options.index(current_description)
+                            except ValueError:
+                                current_index = 0 # Default to first option if not found
+                            
+                            selected_description = st.selectbox(
+                                label=" ", # Empty label for cleaner UI
+                                options=display_options,
+                                key=unique_key,
+                                index=current_index,
+                            )
+                            # Store the numerical value corresponding to the selected description
+                            st.session_state['all_evaluation_widgets_map'][unique_key] = desc_to_value_map[selected_description]
+                        else:
+                            # Fallback if no detailed ranges are defined (shouldn't happen with current data)
+                            opts = {'Sobresaliente': 2, 'Bueno': 1, 'Indiferente': 0, 'Malo': -1}
+                            current_value = st.session_state['all_evaluation_widgets_map'].get(unique_key, 0)
+                            current_label = next((label for label, val in opts.items() if val == current_value), 'Indiferente')
+                            current_index = list(opts.keys()).index(current_label)
+                            selected_label = st.selectbox(
+                                label=" ",
+                                options=list(opts.keys()),
+                                key=unique_key,
+                                index=current_index,
+                            )
+                            st.session_state['all_evaluation_widgets_map'][unique_key] = opts[selected_label]
+
+        # Pagination buttons
+        col_prev, col_next = st.columns([1,1])
+        with col_prev:
+            if st.button("Anterior", key="prev_eval_page_providers_service_type", disabled=(st.session_state['evaluation_page_providers'] == 0)):
+                st.session_state['evaluation_page_providers'] -= 1
+                st.rerun() # Use rerun here for page changes, as the content structure changes
+        with col_next:
+            if st.button("Siguiente", key="next_eval_page_providers_service_type", disabled=(end_index >= total_providers)):
+                st.session_state['evaluation_page_providers'] += 1
+                st.rerun() # Use rerun here for page changes
+
+        st.markdown("---") # Visual separator
+        if st.button("Generar Resumen de Evaluación y Exportar a Excel", key="generate_summary_service_type"):
+            self.generar_resumen_evaluacion(df_filtered_by_service, st.session_state['selected_service_type'], mode='by_service_type')
+
+        # Plotting if metrics are available for the selected service type
+        metrics = st.session_state.get('current_service_type_metrics', {})
+        if metrics:
+            st.markdown("#### Distribución de Rendimiento por Proveedor")
+            rend_data_for_plot = metrics.get('rend', pd.Series()).dropna()
+            if not rend_data_for_plot.empty:
+                self.graficar_rendimiento(rend_data_for_plot)
+            else:
+                st.info("No hay datos de rendimiento de proveedores para graficar para este tipo de servicio.")
+
+            st.markdown("#### Métricas Clave de Desempeño por Proveedor")
+            mttr_data_for_plot = metrics.get('mttr', pd.Series()).dropna()
+            mtbf_data_for_plot = metrics.get('mtbf', pd.Series()).dropna()
+            disp_data_for_plot = metrics.get('disp', pd.Series()).dropna()
+
+            plots_exist = not mttr_data_for_plot.empty or not mtbf_data_for_plot.empty or not disp_data_for_plot.empty
+            if plots_exist:
+                self.graficar_resumen_proveedor(mttr_data_for_plot, mtbf_data_for_plot, disp_data_for_plot)
+            else:
+                st.info("No hay datos de MTTR, MTBF o Disponibilidad válidos para graficar de los proveedores para este tipo de servicio.")
+        else:
+            st.info("No hay métricas de desempeño disponibles para los proveedores de este tipo de servicio.")
+
+
+    def _display_evaluation_by_provider(self):
+        st.subheader("Evaluación por Proveedor Individual")
+
+        all_providers_eval = sorted(self.df['PROVEEDOR'].dropna().unique().tolist())
+        provider_options = ["Seleccionar..."] + all_providers_eval
+        
+        try:
+            current_index = provider_options.index(st.session_state['selected_provider_eval'])
+        except ValueError:
+            current_index = 0
+
+        selected_provider_eval = st.sidebar.selectbox(
+            "Selecciona Proveedor para Evaluar:",
+            options=provider_options,
+            index=current_index,
+            key='eval_provider_selector_inner'
+        )
+        
+        if st.session_state['selected_provider_eval'] != selected_provider_eval:
+            st.session_state['selected_provider_eval'] = selected_provider_eval
+            st.session_state['evaluation_page_service_types_for_provider'] = 0 # Reset page for new provider
+            st.session_state['all_evaluation_widgets_map'] = {} # Clear map on provider change
+            st.rerun() # Rerun to apply the new provider selection
+
+        if st.session_state['selected_provider_eval'] == "Seleccionar...":
+            st.info("Por favor, selecciona un 'Proveedor' en la barra lateral para comenzar la evaluación.")
+            return
+
+        # Filter DataFrame for the selected provider across all service types
+        df_filtered_by_provider = self.df[self.df['PROVEEDOR'] == st.session_state['selected_provider_eval']]
+        
+        if df_filtered_by_provider.empty:
+            st.info(f"No hay datos para el proveedor '{st.session_state['selected_provider_eval']}'.")
+            st.session_state['all_evaluation_widgets_map'] = {}
+            return
+
+        # Get unique service types for the selected provider
+        all_service_types_for_provider = sorted(df_filtered_by_provider['TIPO DE SERVICIO'].dropna().unique().tolist())
+        if not all_service_types_for_provider:
+            st.info(f"El proveedor '{st.session_state['selected_provider_eval']}' no tiene tipos de servicio asociados en los datos.")
+            return
+
+        # Recalculate metrics for all service types for this provider
+        # This will give us MTTR, MTBF, Disp per service type for the selected provider
+        provider_service_type_metrics = {}
+        for service_type in all_service_types_for_provider:
+            df_sub = df_filtered_by_provider[df_filtered_by_provider['TIPO DE SERVICIO'] == service_type]
+            # Use a dummy group_col if only one row for service_type is expected in results
+            # Otherwise, calculate_indicadores will return a Series, and we need to extract the value for 'service_type'
+            cnt, cost, mttr, mtbf, disp, rend = calcular_indicadores(df_sub, group_col='TIPO DE SERVICIO')
+            
+            # Extract scalar values from the Series returned by calcular_indicadores for the specific service_type
+            # .get(service_type, default_value) is safe for Series
+            provider_service_type_metrics[service_type] = {
+                'cnt': cnt.get(service_type, 0),
+                'cost': cost.get(service_type, 0.0),
+                'mttr': mttr.get(service_type, np.nan),
+                'mtbf': mtbf.get(service_type, np.nan),
+                'disp': disp.get(service_type, np.nan),
+                'rend': rend.get(service_type, 'No Aplica')
+            }
+        st.session_state['current_provider_service_type_metrics'] = provider_service_type_metrics
+
+
+        items_per_page_sts = 5 # Number of service types to show per page
+        total_service_types = len(all_service_types_for_provider)
+        max_page_sts = max(0, (total_service_types - 1) // items_per_page_sts)
+
+        if st.session_state['evaluation_page_service_types_for_provider'] > max_page_sts:
+            st.session_state['evaluation_page_service_types_for_provider'] = max_page_sts
+        if st.session_state['evaluation_page_service_types_for_provider'] < 0:
+            st.session_state['evaluation_page_service_types_for_provider'] = 0
+
+        start_index_sts = st.session_state['evaluation_page_service_types_for_provider'] * items_per_page_sts
+        end_index_sts = min(start_index_sts + items_per_page_sts, total_service_types)
+        service_types_on_page = all_service_types_for_provider[start_index_sts:end_index_sts]
+
+        if not service_types_on_page:
+            st.info("No hay tipos de servicio para mostrar en esta página para el proveedor seleccionado.")
+            return
+
 
         st.markdown("---")
-        st.write(f"**Evaluando a:** {selected_proveedor}")
+        st.markdown(f"### Calificación de Preguntas para el Proveedor: {st.session_state['selected_provider_eval']}")
+        st.info("Utiliza los selectores para asignar una puntuación a cada pregunta por tipo de servicio.")
 
-        if selected_proveedor:
-            # Initialize a dictionary to store selected answers and scores
-            answers_and_scores = {}
-            total_score = 0
-            max_possible_score_manual = 0 # For manual questions with 2,1,0,-1
-            
-            st.subheader("Evaluación Manual")
-            # Group questions by category for better display
-            questions_by_category = {}
-            for category, question_text, score_type in self.preguntas_evaluacion:
-                if score_type != "auto": # Only process manual questions here
-                    if category not in questions_by_category:
-                        questions_by_category[category] = []
-                    questions_by_category[category].append((question_text, score_type))
-
-            for category, questions_list in questions_by_category.items():
-                if category == "Desempeño técnico": # Skip technical performance for manual evaluation
-                    continue
-                st.markdown(f"### {category}")
-                for i, (question_text, score_type) in enumerate(questions_list):
-                    # Get options for this specific question from rangos_detallados
-                    options_dict = self.rangos_detallados_evaluacion.get(category, {}).get(question_text, {})
-                    if not options_dict:
-                        st.warning(f"No se encontraron rangos detallados para la pregunta: '{question_text}' en la categoría '{category}'.")
-                        continue
-
-                    # Sort options by score for display consistency (e.g., 2, 1, 0, -1)
-                    sorted_scores = sorted(options_dict.keys(), reverse=True)
-                    display_options = [f"{score} - {options_dict[score]}" for score in sorted_scores]
-                    
-                    col1, col2 = st.columns([0.6, 0.4])
-
-                    with col1:
-                        st.write(f"**{question_text}:**")
-                    with col2:
-                        selected_option_display = st.radio(
-                            f"Selecciona una opción para '{question_text}'",
-                            display_options,
-                            key=f"{category}_{question_text.replace(' ', '_').replace('?', '')}",
-                            horizontal=False # Vertical radio buttons for better readability with long descriptions
-                        )
-                        # Extract the score from the selected display option (e.g., "2 - Total coherencia" -> 2)
-                        selected_score = int(selected_option_display.split(' - ')[0])
-                        answers_and_scores[question_text] = selected_score
-                        max_possible_score_manual += max(options_dict.keys()) # Sum the max possible score for each question
-
-            st.markdown("---")
-            st.subheader("Evaluación Automática (Desempeño Técnico)")
-
-            # Filter data for the selected provider for automatic calculations
-            provider_df = self.df[self.df['PROVEEDOR'] == selected_proveedor]
-
-            if not provider_df.empty:
-                # Calculate indicators for the selected provider
-                cnt, cost, mttr_series, mtbf_series, disp_series, rend_series = calcular_indicadores(provider_df, group_col='PROVEEDOR')
-
-                # Get the single value for the selected provider (since we grouped by PROVEEDOR, there should be one entry)
-                # Use .iloc[0] or .item() if you are sure there's only one value
-                provider_mttr = mttr_series.iloc[0] if not mttr_series.empty else np.nan
-                provider_mtbf = mtbf_series.iloc[0] if not mtbf_series.empty else np.nan
-                provider_disp = disp_series.iloc[0] if not disp_series.empty else np.nan
-                provider_rend = rend_series.iloc[0] if not rend_series.empty else 'No Aplica'
-
-                # Evaluate "Desempeño técnico" questions based on calculated indicators
-                st.write(f"- **Disponibilidad promedio (%):** {provider_disp:.2f}%")
-                st.write(f"- **MTTR promedio (hrs):** {provider_mttr:.2f} hrs")
-                st.write(f"- **MTBF promedio (hrs):** {provider_mtbf:.2f} hrs")
-                st.write(f"- **Rendimiento promedio equipos:** {provider_rend}")
-
-                # Score the automatic questions based on rangos_detallados
-                for q_category, q_text, q_type in self.preguntas_evaluacion:
-                    if q_type == "auto" and q_category == "Desempeño técnico":
-                        options_dict = self.rangos_detallados_evaluacion.get(q_category, {}).get(q_text, {})
-                        
-                        score_for_auto_question = 0
-                        max_score_for_auto_question = max(options_dict.keys()) if options_dict else 0
-
-                        if q_text == "Disponibilidad promedio (%)":
-                            for score_val, desc in options_dict.items():
-                                if eval(f"{provider_disp} {desc.replace('Disponibilidad', '')}"):
-                                    score_for_auto_question = score_val
-                                    break
-                        elif q_text == "MTTR promedio (hrs)":
-                            for score_val, desc in options_dict.items():
-                                if eval(f"{provider_mttr} {desc.replace('MTTR', '')}"):
-                                    score_for_auto_question = score_val
-                                    break
-                        elif q_text == "MTBF promedio (hrs)":
-                            for score_val, desc in options_dict.items():
-                                if eval(f"{provider_mtbf} {desc.replace('MTBF', '')}"):
-                                    score_for_auto_question = score_val
-                                    break
-                        elif q_text == "Rendimiento promedio equipos":
-                            for score_val, desc in options_dict.items():
-                                # Extract the performance level from the description (e.g., 'Alto', 'Medio', 'Bajo')
-                                desc_level = desc.split("'")[1]
-                                if provider_rend == desc_level:
-                                    score_for_auto_question = score_val
-                                    break
-                        
-                        answers_and_scores[q_text] = score_for_auto_question
-                        total_score += score_for_auto_question
-                        max_possible_score_manual += max_score_for_auto_question # Add to the total max score
-
+        with st.expander("Ver mapeo de Tipos de Servicio en esta página"):
+            if service_types_on_page:
+                for st_val in service_types_on_page:
+                    idx = all_service_types_for_provider.index(st_val) + 1
+                    st.write(f"**Tipo de Servicio {idx}:** `{st_val}`")
             else:
-                st.info("No hay datos disponibles para el desempeño técnico de este proveedor.")
+                st.write("No hay tipos de servicio en esta página para mapear.")
+
+        # Create columns dynamically for questions and service types
+        col_widths_sts = [0.4] + [(0.6 / len(service_types_on_page)) for _ in service_types_on_page]
+        cols_sts = st.columns(col_widths_sts)
+
+        # Header row
+        with cols_sts[0]:
+            st.write("**Pregunta**")
+        for i, service_type_label in enumerate(service_types_on_page):
+            with cols_sts[i+1]:
+                global_idx = all_service_types_for_provider.index(service_type_label) + 1
+                st.write(f"**Tipo de Servicio {global_idx}**")
+                st.markdown(f"<p style='font-size: small; text-align: center;'>({service_type_label})</p>", unsafe_allow_html=True)
+                st.write(" ")
+
+        # Questions and Selectboxes/Scores
+        for cat, texto, escala in preguntas:
+            with cols_sts[0]:
+                st.markdown(f"**[{cat}]** {texto}")
+
+            for i, service_type_original in enumerate(service_types_on_page):
+                with cols_sts[i+1]:
+                    # Key format: {mode}-{selected_provider_eval}-{category}-{question_text}-{service_type_original}
+                    unique_key = f"{st.session_state['evaluation_mode']}-{st.session_state['selected_provider_eval']}-{cat}-{texto}-{service_type_original}"
+                    
+                    if escala == "auto":
+                        val = 0 # Default
+                        # Get metrics specific to this service_type for the selected provider
+                        metrics = st.session_state['current_provider_service_type_metrics'].get(service_type_original, {})
+                        disp_sts = metrics.get('disp', np.nan)
+                        mttr_sts = metrics.get('mttr', np.nan)
+                        mtbf_sts = metrics.get('mtbf', np.nan)
+                        rend_sts = metrics.get('rend', 'No Aplica')
+
+                        if 'Disponibilidad' in texto and not pd.isna(disp_sts):
+                            val = 2 if disp_sts >= 98 else (1 if disp_sts >= 75 else 0)
+                        elif 'MTTR' in texto and not pd.isna(mttr_sts):
+                            val = 2 if mttr_sts <= 5 else (1 if mttr_sts <= 20 else 0)
+                        elif 'MTBF' in texto and not pd.isna(mtbf_sts):
+                            val = 2 if mtbf_sts > 1000 else (1 if mtbf_sts >= 100 else 0)
+                        elif 'Rendimiento' in texto:
+                            if rend_sts == 'Alto': val = 2
+                            elif rend_sts == 'Medio': val = 1
+                            elif rend_sts == 'Bajo': val = 0
+                        
+                        st.write(f"**{val}**")
+                        if cat in rangos_detallados and texto in rangos_detallados[cat] and val in rangos_detallados[cat][texto]:
+                            st.markdown(f"<p style='font-size: smaller; color: grey;'>({rangos_detallados[cat][texto][val]})</p>", unsafe_allow_html=True)
+                        else:
+                            st.markdown(f"<p style='font-size: smaller; color: grey;'>(Valor calculado automáticamente)</p>", unsafe_allow_html=True)
+                        st.session_state['all_evaluation_widgets_map'][unique_key] = val
+
+                    else: # Manual questions
+                        if cat in rangos_detallados and texto in rangos_detallados[cat]:
+                            options_dict = rangos_detallados[cat][texto]
+                            sorted_options = sorted(options_dict.items(), key=lambda item: item[0], reverse=True)
+                            display_options = [desc for val, desc in sorted_options]
+                            desc_to_value_map = {desc: val for val, desc in sorted_options}
+                            
+                            current_value = st.session_state['all_evaluation_widgets_map'].get(unique_key, 0)
+                            current_description = next((desc for val, desc in sorted_options if val == current_value), display_options[0])
+                            
+                            try:
+                                current_index = display_options.index(current_description)
+                            except ValueError:
+                                current_index = 0
+                            
+                            selected_description = st.selectbox(
+                                label=" ",
+                                options=display_options,
+                                key=unique_key,
+                                index=current_index,
+                            )
+                            st.session_state['all_evaluation_widgets_map'][unique_key] = desc_to_value_map[selected_description]
+                        else: # Fallback
+                            opts = {'Sobresaliente': 2, 'Bueno': 1, 'Indiferente': 0, 'Malo': -1}
+                            current_value = st.session_state['all_evaluation_widgets_map'].get(unique_key, 0)
+                            current_label = next((label for label, val in opts.items() if val == current_value), 'Indiferente')
+                            current_index = list(opts.keys()).index(current_label)
+                            selected_label = st.selectbox(
+                                label=" ",
+                                options=list(opts.keys()),
+                                key=unique_key,
+                                index=current_index,
+                            )
+                            st.session_state['all_evaluation_widgets_map'][unique_label] = opts[selected_label] # Changed to unique_key to match pattern
+                            st.session_state['all_evaluation_widgets_map'][unique_key] = opts[selected_label]
+        
+        # Pagination for service types within provider evaluation
+        col_prev_sts, col_next_sts = st.columns([1,1])
+        with col_prev_sts:
+            if st.button("Anterior (Tipos de Servicio)", key="prev_eval_page_sts_for_provider", disabled=(st.session_state['evaluation_page_service_types_for_provider'] == 0)):
+                st.session_state['evaluation_page_service_types_for_provider'] -= 1
+                st.rerun()
+        with col_next_sts:
+            if st.button("Siguiente (Tipos de Servicio)", key="next_eval_page_sts_for_provider", disabled=(end_index_sts >= total_service_types)):
+                st.session_state['evaluation_page_service_types_for_provider'] += 1
+                st.rerun()
 
 
-            if st.button("Calcular Evaluación Final"):
-                # Sum scores from both manual and automatic evaluations
-                final_total_score = sum(answers_and_scores.values())
-                
-                # Calculate total possible score including auto-calculated parts
-                # This assumes 'auto' questions also have a max score in their options
-                total_max_score = 0
-                for category, question_text, score_type in self.preguntas_evaluacion:
-                    if category in self.rangos_detallados_evaluacion and question_text in self.rangos_detallados_evaluacion[category]:
-                        options_dict = self.rangos_detallados_evaluacion[category][question_text]
-                        if options_dict:
-                            total_max_score += max(options_dict.keys())
+        st.markdown("---")
+        if st.button("Generar Resumen de Evaluación y Exportar a Excel", key="generate_summary_by_provider"):
+            # When generating summary for 'by_provider' mode, we consider the overall performance of the selected provider
+            # This means summing scores across all their evaluated service types
+            self.generar_resumen_evaluacion(df_filtered_by_provider, st.session_state['selected_provider_eval'], mode='by_provider')
 
+        # Plotting of provider metrics per service type
+        metrics = st.session_state.get('current_provider_service_type_metrics', {})
+        if metrics:
+            st.markdown(f"#### Distribución de Rendimiento del Proveedor '{st.session_state['selected_provider_eval']}' por Tipo de Servicio")
+            rend_data_for_plot_sts = pd.Series({k: v['rend'] for k, v in metrics.items() if not pd.isna(v.get('rend'))}).dropna()
+            if not rend_data_for_plot_sts.empty:
+                self.graficar_rendimiento(rend_data_for_plot_sts)
+            else:
+                st.info("No hay datos de rendimiento por tipo de servicio para este proveedor.")
 
-                st.write("---")
-                st.subheader("Resultados de la Evaluación Final:")
+            st.markdown(f"#### Métricas Clave de Desempeño del Proveedor '{st.session_state['selected_provider_eval']}' por Tipo de Servicio")
+            mttr_data_for_plot_sts = pd.Series({k: v['mttr'] for k, v in metrics.items() if not pd.isna(v.get('mttr'))}).dropna()
+            mtbf_data_for_plot_sts = pd.Series({k: v['mtbf'] for k, v in metrics.items() if not pd.isna(v.get('mtbf'))}).dropna()
+            disp_data_for_plot_sts = pd.Series({k: v['disp'] for k, v in metrics.items() if not pd.isna(v.get('disp'))}).dropna()
 
-                for question, score in answers_and_scores.items():
-                    st.write(f"- **{question}:** Puntuación: {score}")
-
-                # Calculate percentage score
-                percentage_score = (final_total_score / total_max_score) * 100 if total_max_score > 0 else 0
-
-                st.write(f"---")
-                st.markdown(f"**Puntuación Total Final:** {final_total_score} / {total_max_score}")
-                st.markdown(f"**Porcentaje de Evaluación:** {percentage_score:.2f}%")
-
-                # Provide a qualitative assessment based on the percentage
-                if percentage_score >= 90:
-                    st.success("¡Excelente rendimiento del proveedor! 🎉")
-                elif percentage_score >= 70:
-                    st.info("Buen rendimiento del proveedor. 👍")
-                elif percentage_score >= 50:
-                    st.warning("Rendimiento regular del proveedor. Requiere atención. ⚠️")
-                else:
-                    st.error("Rendimiento deficiente del proveedor. Necesita mejora urgente. 🛑")
-
+            plots_exist_sts = not mttr_data_for_plot_sts.empty or not mtbf_data_for_plot_sts.empty or not disp_data_for_plot_sts.empty
+            if plots_exist_sts:
+                self.graficar_resumen_proveedor(mttr_data_for_plot_sts, mtbf_data_for_plot_sts, disp_data_for_plot_sts, axis_label='Tipo de Servicio')
+            else:
+                st.info("No hay datos de MTTR, MTBF o Disponibilidad válidos para graficar de los tipos de servicio para este proveedor.")
         else:
-            st.warning("Por favor, selecciona un proveedor para comenzar la evaluación.")
+            st.info("No hay métricas de desempeño disponibles por tipo de servicio para este proveedor.")
 
 
-# --- FLUJO PRINCIPAL DE LA APLICACIÓN ---
+    def generar_resumen_evaluacion(self, df_filtered, selected_entity, mode):
+    # Add this line at the very beginning of the function:
+    total_scores_by_provider = {}
+        st.subheader("Generando resumen de evaluación...")
+
+        if not st.session_state.get('all_evaluation_widgets_map'):
+            st.warning("No hay evaluaciones para resumir. Selecciona un modo de evaluación y completa las evaluaciones.")
+            return
+
+        summary_data = []
+        quantitative_metrics_data = {
+            'Identificador de Evaluación': identifier,
+            'Tipo de Elemento Evaluado': [],
+            'Elemento Evaluado (Nombre)': [], # Could be Provider or Service Type
+            'Número de Avisos': [],
+            'Costo Total Real': [],
+            'MTTR Promedio (hrs)': [],
+            'MTBF Promedio (hrs)': [],
+            'Disponibilidad Promedio (%)': [],
+            'Rendimiento': []
+        }
+
+        if mode == 'by_service_type':
+            # This mode evaluates PROVEEDORES within a selected TIPO DE SERVICIO
+            st_identifier = identifier # This is the service type selected
+            all_providers_for_st = sorted(df_filtered['PROVEEDOR'].dropna().unique().tolist())
+            
+            # Prepare summary_df_calificacion
+            for cat, texto, escala in preguntas:
+                row = {'Categoría': cat, 'Pregunta': texto}
+                for prov in all_providers_for_st:
+                    # Key format: {evaluation_mode}-{service_type/provider_identifier}-{category}-{question_text}-{provider_name (if by service type)}
+                    unique_key = f"{mode}-{st_identifier}-{cat}-{texto}-{prov}"
+                    score = st.session_state['all_evaluation_widgets_map'].get(unique_key, np.nan)
+                    row[prov] = score
+                summary_data.append(row)
+            summary_df_calificacion = pd.DataFrame(summary_data)
+            summary_df_calificacion.set_index(['Categoría', 'Pregunta'], inplace=True)
+            total_scores_by_provider = summary_df_calificacion.sum(numeric_only=True)
+            summary_df_calificacion.loc[('Total General', 'Puntuación Total')] = total_scores_by_provider.astype(int) # Ensure int
+
+            # Quantitative Metrics
+            metrics = st.session_state.get('current_service_type_metrics', {})
+            cnt_p = metrics.get('cnt', pd.Series())
+            cost_p = metrics.get('cost', pd.Series())
+            mttr_p = metrics.get('mttr', pd.Series())
+            mtbf_p = metrics.get('mtbf', pd.Series())
+            disp_p = metrics.get('disp', pd.Series())
+            rend_p = metrics.get('rend', pd.Series())
+
+            for prov in all_providers_for_st:
+                quantitative_metrics_data['Tipo de Elemento Evaluado'].append('Proveedor')
+                quantitative_metrics_data['Elemento Evaluado (Nombre)'].append(prov)
+                quantitative_metrics_data['Número de Avisos'].append(cnt_p.get(prov, 0))
+                quantitative_metrics_data['Costo Total Real'].append(cost_p.get(prov, 0))
+                quantitative_metrics_data['MTTR Promedio (hrs)'].append(mttr_p.get(prov, np.nan))
+                quantitative_metrics_data['MTBF Promedio (hrs)'].append(mtbf_p.get(prov, np.nan))
+                quantitative_metrics_data['Disponibilidad Promedio (%)'].append(disp_p.get(prov, np.nan))
+                quantitative_metrics_data['Rendimiento'].append(rend_p.get(prov, 'No Aplica'))
+            
+            quantitative_metrics_df = pd.DataFrame(quantitative_metrics_data)
+            col_name_for_scores = 'Proveedor'
+            ranking_title = f"Ranking de Proveedores para el Tipo de Servicio: {st_identifier}"
+
+        elif mode == 'by_provider':
+            # This mode evaluates TIPO DE SERVICIO for a selected PROVEEDOR
+            prov_identifier = identifier # This is the provider selected
+            all_service_types_for_prov = sorted(df_filtered['TIPO DE SERVICIO'].dropna().unique().tolist())
+
+            # Prepare summary_df_calificacion
+            for cat, texto, escala in preguntas:
+                row = {'Categoría': cat, 'Pregunta': texto}
+                for service_type in all_service_types_for_prov:
+                    # Key format: {mode}-{selected_provider_eval}-{category}-{question_text}-{service_type_original}
+                    unique_key = f"{mode}-{prov_identifier}-{cat}-{texto}-{service_type}"
+                    score = st.session_state['all_evaluation_widgets_map'].get(unique_key, np.nan)
+                    row[service_type] = score
+                summary_data.append(row)
+            summary_df_calificacion = pd.DataFrame(summary_data)
+            summary_df_calificacion.set_index(['Categoría', 'Pregunta'], inplace=True)
+            total_scores_by_service_type = summary_df_calificacion.sum(numeric_only=True)
+            summary_df_calificacion.loc[('Total General', 'Puntuación Total')] = total_scores_by_service_type.astype(int) # Ensure int
+
+
+            # Quantitative Metrics
+            metrics_per_service_type = st.session_state.get('current_provider_service_type_metrics', {})
+            for service_type in all_service_types_for_prov:
+                sts_metrics = metrics_per_service_type.get(service_type, {})
+                quantitative_metrics_data['Tipo de Elemento Evaluado'].append('Tipo de Servicio')
+                quantitative_metrics_data['Elemento Evaluado (Nombre)'].append(service_type)
+                quantitative_metrics_data['Número de Avisos'].append(sts_metrics.get('cnt', 0))
+                quantitative_metrics_data['Costo Total Real'].append(sts_metrics.get('cost', 0.0))
+                quantitative_metrics_data['MTTR Promedio (hrs)'].append(sts_metrics.get('mttr', np.nan))
+                quantitative_metrics_data['MTBF Promedio (hrs)'].append(sts_metrics.get('mtbf', np.nan))
+                quantitative_metrics_data['Disponibilidad Promedio (%)'].append(sts_metrics.get('disp', np.nan))
+                quantitative_metrics_data['Rendimiento'].append(sts_metrics.get('rend', 'No Aplica'))
+            
+            quantitative_metrics_df = pd.DataFrame(quantitative_metrics_data)
+            col_name_for_scores = 'Tipo de Servicio'
+            ranking_title = f"Puntuación por Tipo de Servicio para el Proveedor: {prov_identifier}"
+
+
+        if summary_df_calificacion.empty:
+            st.warning("No se pudieron generar datos de resumen de evaluación.")
+            return
+
+        # Display the summary table
+        st.markdown("### Resumen de Calificación por Pregunta")
+        st.dataframe(summary_df_calificacion.style.format(precision=0, na_rep='N/A'), use_container_width=True)
+
+        # Generate Ranking (or single score for by_provider mode)
+        # Note: 'total_scores_by_provider' (or service type) comes from the current evaluation context
+        ranking_df = pd.DataFrame({'Puntuación Total': total_scores_by_provider}).sort_values('Puntuación Total', ascending=False)
+        ranking_df.index.name = col_name_for_scores
+        
+        if mode == 'by_service_type':
+            ranking_df['Ranking'] = ranking_df['Puntuación Total'].rank(method='min', ascending=False).astype(int)
+            ranking_df = ranking_df.reset_index().set_index('Ranking')
+        else: # mode == 'by_provider'
+            ranking_df = ranking_df.reset_index()
+
+
+        st.markdown(f"### {ranking_title}")
+        st.dataframe(ranking_df.style.format(precision=0, na_rep='N/A'), use_container_width=True)
+
+        # Display quantitative metrics
+        st.markdown(f"### Métricas Cuantitativas")
+        st.dataframe(quantitative_metrics_df.style.format(precision=2, na_rep='N/A'), use_container_width=True)
+
+
+        # To Excel
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            summary_df_calificacion.to_excel(writer, sheet_name='Calificaciones por Pregunta')
+            ranking_df.to_excel(writer, sheet_name='Ranking')
+            quantitative_metrics_df.to_excel(writer, sheet_name='Metricas Cuantitativas', index=False)
+
+            # Optional: Auto-adjust column widths for better readability
+            for sheet_name in writer.sheets:
+                worksheet = writer.sheets[sheet_name]
+                for idx, col in enumerate(summary_df_calificacion.columns):
+                    max_len = max(
+                        len(str(col)),
+                        (summary_df_calificacion[col].astype(str).map(len).max() if not summary_df_calificacion[col].empty else 0)
+                    ) + 2
+                    worksheet.set_column(idx, idx, max_len)
+                # For MultiIndex, adjust first few columns manually if needed
+                if sheet_name == 'Calificaciones por Pregunta':
+                    worksheet.set_column(0, 0, 20) # Categoría
+                    worksheet.set_column(1, 1, 60) # Pregunta
+
+        st.download_button(
+            label="Descargar Resumen de Evaluación como Excel",
+            data=output.getvalue(),
+            file_name=f"Resumen_Evaluacion_{identifier.replace(' ', '_')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key=f"download_button_{mode}_{identifier}"
+        )
+
+
+    def graficar_rendimiento(self, rendimiento_series):
+        if rendimiento_series.empty:
+            st.info("No hay datos de rendimiento para graficar.")
+            return
+
+        # Count occurrences of each category
+        # Ensure consistent order even if a category has 0 occurrences
+        rendimiento_counts = rendimiento_series.value_counts().reindex(['Alto', 'Medio', 'Bajo', 'No Aplica'], fill_value=0)
+
+        fig, ax = plt.subplots(figsize=(10, 6))
+        # Ensure colors match the meaning: Green for Alto, Amber for Medio, Red for Bajo, Grey for No Aplica
+        colors = ['#4CAF50', '#FFC107', '#FF5722', '#9E9E9E']
+        
+        # Match colors to reindexed order
+        ordered_colors = [colors[0] if c == 'Alto' else colors[1] if c == 'Medio' else colors[2] if c == 'Bajo' else colors[3] for c in rendimiento_counts.index]
+        
+        bars = ax.bar(rendimiento_counts.index, rendimiento_counts.values, color=ordered_colors)
+        ax.set_title('Distribución de Rendimiento')
+        ax.set_xlabel('Nivel de Rendimiento')
+        ax.set_ylabel('Número de Entidades')
+        ax.set_ylim(0, rendimiento_counts.max() * 1.1)
+
+        # Add labels on top of bars
+        for bar in bars:
+            yval = bar.get_height()
+            ax.text(bar.get_x() + bar.get_width()/2, yval + 0.5, round(yval, 0), ha='center', va='bottom', fontsize=9) # Add 0.5 for slight offset
+
+        plt.tight_layout()
+        st.pyplot(fig)
+
+
+    def graficar_resumen_proveedor(self, mttr_series, mtbf_series, disp_series, axis_label='Proveedor'):
+        # Combine all relevant series into one DataFrame for easy plotting
+        plot_df = pd.DataFrame({
+            'MTTR (hrs)': mttr_series,
+            'MTBF (hrs)': mtbf_series,
+            'Disponibilidad (%)': disp_series
+        })
+        
+        # Ensure plot_df has all relevant identifiers, even if some have NaN for certain metrics
+        # If axis_label is 'Proveedor', use all_service_providers, otherwise if 'Tipo de Servicio' use all_service_types_for_provider
+        if axis_label == 'Proveedor' and st.session_state.get('all_service_providers'):
+            plot_df = plot_df.reindex(st.session_state['all_service_providers'])
+        elif axis_label == 'Tipo de Servicio' and st.session_state.get('selected_provider_eval') != "Seleccionar...":
+            # Get all service types for the currently selected provider to ensure consistency
+            # This logic should retrieve the list from where `all_service_types_for_provider` was populated.
+            # In the `_display_evaluation_by_provider` method, it's `all_service_types_for_provider`.
+            # We can retrieve it from the session state if needed, or simply re-calculate.
+            # For simplicity, let's directly re-calculate from df_filtered_by_provider if needed here.
+            # This assumes df_filtered_by_provider is accessible or can be recreated.
+            
+            # Recreate all_service_types_for_provider based on the selected provider.
+            # This is less efficient but ensures correctness if session state is complex.
+            if 'df' in st.session_state and st.session_state['df'] is not None:
+                current_df_for_provider = st.session_state['df'][
+                    st.session_state['df']['PROVEEDOR'] == st.session_state['selected_provider_eval']
+                ]
+                all_service_types_for_current_provider = sorted(
+                    current_df_for_provider['TIPO DE SERVICIO'].dropna().unique().tolist()
+                )
+                plot_df = plot_df.reindex(all_service_types_for_current_provider)
+
+
+        plot_df = plot_df.fillna(0) # Fill NaN with 0 for plotting purposes if a metric is not available
+
+        if plot_df.empty or len(plot_df) == 0:
+            st.info(f"No hay datos suficientes para graficar métricas clave de desempeño por {axis_label}.")
+            return
+
+        # Adjust figsize based on number of items to avoid squashing labels
+        num_items = len(plot_df)
+        fig_height = max(10, num_items * 0.8) # Min height 10, grows with number of items
+        fig, axes = plt.subplots(3, 1, figsize=(12, fig_height), sharex=True)
+        fig.suptitle(f'Métricas Clave de Desempeño por {axis_label}', fontsize=16)
+
+        # MTTR Plot
+        sns.barplot(x=plot_df.index, y='MTTR (hrs)', data=plot_df, ax=axes[0], palette='viridis')
+        axes[0].set_title(f'MTTR Promedio por {axis_label}')
+        axes[0].set_ylabel('MTTR (hrs)')
+        axes[0].tick_params(axis='x', rotation=45)
+
+        # MTBF Plot
+        sns.barplot(x=plot_df.index, y='MTBF (hrs)', data=plot_df, ax=axes[1], palette='plasma')
+        axes[1].set_title(f'MTBF Promedio por {axis_label}')
+        axes[1].set_ylabel('MTBF (hrs)')
+        axes[1].tick_params(axis='x', rotation=45)
+
+        # Disponibilidad Plot
+        sns.barplot(x=plot_df.index, y='Disponibilidad (%)', data=plot_df, ax=axes[2], palette='cividis')
+        axes[2].set_title(f'Disponibilidad Promedio por {axis_label}')
+        axes[2].set_ylabel('Disponibilidad (%)')
+        axes[2].tick_params(axis='x', rotation=45)
+        
+        # Set x-axis label only for the bottom plot
+        axes[2].set_xlabel(axis_label)
+
+        plt.tight_layout(rect=[0, 0.03, 1, 0.96]) # Adjust layout to prevent title overlap
+        st.pyplot(fig)
+
+# --- Main Application Logic (using Streamlit's new structure) ---
+
+# Initialize session state for navigation
 if 'page' not in st.session_state:
-    st.session_state['page'] = 'cargar_datos'
-if 'df' not in st.session_state:
-    st.session_state['df'] = None
+    st.session_state['page'] = 'upload'
 
-# Sidebar para navegación
+def navigate_to(page):
+    st.session_state['page'] = page
+    st.rerun()
+
+# Sidebar for navigation
 with st.sidebar:
+    st.image("https://www.sura.com/blogs/wp-content/uploads/2018/02/LogoSURA.png", width=200) # Replace with actual Sura logo if available
     st.title("Menú Principal")
-    if st.button("📂 Cargar Datos", key="menu_cargar"):
-        st.session_state['page'] = 'cargar_datos'
-    if st.button("📊 Costos y Avisos", key="menu_costos"):
-        st.session_state['page'] = 'costos_avisos'
-    if st.button("📈 Evaluación", key="menu_evaluacion"):
-        st.session_state['page'] = 'evaluacion'
+    if st.button("Cargar Datos", key="nav_upload"):
+        navigate_to('upload')
+    if 'df' in st.session_state and st.session_state['df'] is not None:
+        if st.button("Análisis de Costos y Avisos", key="nav_costos"):
+            navigate_to('costos_avisos')
+        if st.button("Evaluación de Proveedores", key="nav_evaluacion"):
+            navigate_to('evaluacion')
+    else:
+        st.warning("Carga datos para habilitar otras secciones.")
 
-# Contenido principal basado en la navegación
-if st.session_state['page'] == 'cargar_datos':
-    st.header("Upload Data") # Title for the upload section
-    st.subheader("Aquí podrás cargar tu archivo de Excel para comenzar el análisis.")
-    st.markdown("---")
-    st.write("Por favor, selecciona un archivo Excel (.xlsx) que contenga las hojas requeridas (IW29, IW39, IH08, IW65, ZPM015).")
-    
-    uploaded_file = st.file_uploader("Cargar archivo Excel", type=["xlsx"])
+
+# --- Page Logic ---
+if st.session_state['page'] == 'upload':
+    st.title("Carga de Datos")
+    st.write("Por favor, sube el archivo Excel que contiene las 5 hojas de datos (IW29, IW39, IH08, IW65, ZPM015).")
+    uploaded_file = st.file_uploader("Arrastra aquí tu archivo Excel o haz clic para buscar", type=["xlsx"])
 
     if uploaded_file:
         st.info("Archivo cargando y procesando. Esto puede tardar unos segundos...")
@@ -894,8 +1577,7 @@ if st.session_state['page'] == 'cargar_datos':
             st.dataframe(df.head())
             st.info("Ahora puedes navegar a las secciones de análisis y evaluación desde el menú lateral.")
             # Automatically navigate to Costos y Avisos for initial display
-            st.session_state['page'] = 'costos_avisos' # Correct way to change page
-            st.rerun() # Rerun to display the new page immediately
+            navigate_to('costos_avisos')
         except Exception as e:
             st.error(f"Hubo un error al procesar el archivo: {e}")
             st.warning("Asegúrate de que el archivo Excel contenga las hojas correctas y los formatos esperados.")
@@ -909,8 +1591,7 @@ elif st.session_state['page'] == 'costos_avisos':
 
 elif st.session_state['page'] == 'evaluacion':
     if 'df' in st.session_state and st.session_state['df'] is not None:
-        # Pass the global `preguntas` and `rangos_detallados` to the evaluation app
-        eval_app = EvaluacionProveedoresApp(st.session_state['df'], preguntas, rangos_detallados)
-        eval_app.display_evaluation_dashboard()
+        eval_app = EvaluacionProveedoresApp(st.session_state['df'])
+        eval_app.display_evaluation_form()
     else:
         st.warning("Por favor, carga los datos primero desde la sección 'Cargar Datos'.")
