@@ -1385,16 +1385,6 @@ class EvaluacionProveedoresApp:
         st.markdown("### Resumen de Calificación por Pregunta")
         st.dataframe(summary_df_calificacion.style.format(precision=0, na_rep='N/A'), use_container_width=True)
 
-        
-        if mode == 'by_service_type':
-            ranking_df['Ranking'] = ranking_df['Puntuación Total'].rank(method='min', ascending=False).astype(int)
-            ranking_df = ranking_df.reset_index().set_index('Ranking')
-        else: # mode == 'by_provider'
-            ranking_df = ranking_df.reset_index()
-
-
-        st.markdown(f"### {ranking_title}")
-        st.dataframe(ranking_df.style.format(precision=0, na_rep='N/A'), use_container_width=True)
 
         # Display quantitative metrics
         st.markdown(f"### Métricas Cuantitativas")
