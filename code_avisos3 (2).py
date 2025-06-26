@@ -1279,7 +1279,7 @@ class EvaluacionProveedoresApp:
 
     def generar_resumen_evaluacion(self, df_filtered, selected_entity, mode):
     # Add this line at the very beginning of the function:
-    total_scores_by_provider = {}
+        total_scores_by_provider = {}
         st.subheader("Generando resumen de evaluación...")
 
         if not st.session_state.get('all_evaluation_widgets_map'):
