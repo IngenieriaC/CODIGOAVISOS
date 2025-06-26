@@ -106,54 +106,27 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
     for df_temp in (iw29, iw39, ih08, iw65, zpm015):
         df_temp.columns = df_temp.columns.str.strip()
 
-    # Convertir columnas clave a tipo string para asegurar fusiones correctas
-    # Esto es crucial para evitar problemas de tipo de dato durante las operaciones de merge.
-    if 'Aviso' in iw29.columns:
-        iw29['Aviso'] = iw29['Aviso'].astype(str)
-    if 'Aviso' in iw39.columns:
-        iw39['Aviso'] = iw39['Aviso'].astype(str)
-    if 'Aviso' in iw65.columns:
-        iw65['Aviso'] = iw65['Aviso'].astype(str)
-    if 'Equipo' in iw29.columns: # equipo_original is derived from iw29
-        iw29['Equipo'] = iw29['Equipo'].astype(str)
-    if 'Equipo' in ih08.columns:
-        ih08['Equipo'] = ih08['Equipo'].astype(str)
-    if 'Equipo' in zpm015.columns:
-        zpm015['Equipo'] = zpm015['Equipo'].astype(str)
-
-
     # Guardar "Equipo" original desde IW29 para evitar pérdida
-    # Asegúrate de que 'Aviso' y 'Equipo' estén presentes antes de intentar copiarlos.
-    equipo_original_cols = ["Aviso", "Equipo", "Duración de parada", "Descripción"]
-    equipo_original = iw29[[col for col in equipo_original_cols if col in iw29.columns]].copy()
-
+    equipo_original = iw29[["Aviso", "Equipo", "Duración de parada", "Descripción"]].copy()
 
     # Extraer solo columnas necesarias de iw39 para el merge (incluyendo 'Total general (real)')
-    iw39_subset_cols = ["Aviso", "Total general (real)"]
-    iw39_subset = iw39[[col for col in iw39_subset_cols if col in iw39.columns]]
-
+    iw39_subset = iw39[["Aviso", "Total general (real)"]]
 
     # Unir por 'Aviso'
     tmp1 = pd.merge(iw29, iw39_subset, on="Aviso", how="left")
     tmp2 = pd.merge(tmp1, iw65, on="Aviso", how="left")
 
     # Restaurar el valor original de "Equipo" de IW29 después del merge
-    # Eliminar la columna 'Equipo' si existe antes de fusionar para restaurarla.
-    if 'Equipo' in tmp2.columns:
-        tmp2.drop(columns=["Equipo"], errors='ignore', inplace=True)
+    tmp2.drop(columns=["Equipo"], errors='ignore', inplace=True)
     tmp2 = pd.merge(tmp2, equipo_original, on="Aviso", how="left")
 
     # Unir por 'Equipo' con IH08
-    ih08_merge_cols = [
+    tmp3 = pd.merge(tmp2, ih08[[
         "Equipo", "Inic.garantía prov.", "Fin garantía prov.", "Texto", "Indicador ABC", "Denominación de objeto técnico"
-    ]
-    ih08_merge_cols = [col for col in ih08_merge_cols if col in ih08.columns] # Ensure columns exist
-    tmp3 = pd.merge(tmp2, ih08[ih08_merge_cols], on="Equipo", how="left")
+    ]], on="Equipo", how="left")
 
     # Unir por 'Equipo' con ZPM015
-    zpm015_merge_cols = ["Equipo", "TIPO DE SERVICIO"]
-    zpm015_merge_cols = [col for col in zpm015_merge_cols if col in zpm015.columns] # Ensure columns exist
-    tmp4 = pd.merge(tmp3, zpm015[zpm015_merge_cols], on="Equipo", how="left")
+    tmp4 = pd.merge(tmp3, zpm015[["Equipo", "TIPO DE SERVICIO"]], on="Equipo", how="left")
 
     # Renombrar columnas
     tmp4.rename(columns={
@@ -174,7 +147,7 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
     # Filtrar solo las columnas que realmente existen en tmp4
     columnas_finales = [col for col in columnas_finales if col in tmp4.columns]
 
-    df = tmp4[columnas_finales]
+    return tmp4[columnas_finales]
 
     # Normalize column names more robustly
     ORIGINAL_EJECUTANTE_COL_NAME = "Denominación ejecutante"
