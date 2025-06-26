@@ -1118,7 +1118,7 @@ class EvaluacionProveedoresApp:
         for service_type in all_service_types_for_provider:
             df_sub = df_filtered_by_provider[df_filtered_by_provider['TIPO DE SERVICIO'] == service_type]
             # Use a dummy group_col if only one row for service_type is expected in results
-            # Otherwise, calculate_indicadores will return a Series, and we need to extract the value for 'service_type'
+            # Otherwise, calcular_indicadores will return a Series, and we need to extract the value for 'service_type'
             cnt, cost, mttr, mtbf, disp, rend = calcular_indicadores(df_sub, group_col='TIPO DE SERVICIO')
             
             # Extract scalar values from the Series returned by calcular_indicadores for the specific service_type
@@ -1485,7 +1485,6 @@ class EvaluacionProveedoresApp:
             # This logic should retrieve the list from where `all_service_types_for_provider` was populated.
             # In the `_display_evaluation_by_provider` method, it's `all_service_types_for_provider`.
             # We can retrieve it from the session state if needed, or simply re-calculate.
-            # For simplicity, let's directly re-calculate from df_filtered_by_provider if needed here.
             
             # Recreate all_service_types_for_provider based on the selected provider.
             # This is less efficient but ensures correctness if session state is complex.
@@ -1584,11 +1583,30 @@ if st.session_state['page'] == 'upload':
                 df = df[~df["status_del_sistema"].str.contains("PTBO", case=False, na=False)]
                 st.info(f"Se eliminaron {initial_rows - len(df)} registros con 'PTBO' en 'Status del sistema'.")
 
-            # Dejar solo una fila con coste por cada aviso
+            # Inicia una copia del DataFrame para manipular `costes_totreales`
+            # para evitar SettingWithCopyWarning y asegurar que los cambios se reflejen correctamente.
             if 'aviso' in df.columns and 'costes_totreales' in df.columns:
-                df['costes_totreales'] = df.groupby('aviso')['costes_totreales'].transform(
-                    lambda x: [x.iloc[0]] + [0]*(len(x)-1)
-                )
+                temp_df_for_cost_processing = df[['aviso', 'costes_totreales', 'fecha_de_aviso']].copy() # Include fecha_de_aviso for consistent sorting if available
+
+                # Ordenar por 'aviso' y luego por 'fecha_de_aviso' (si existe) para asegurar
+                # que la "primera" ocurrencia de un aviso sea consistente.
+                if 'fecha_de_aviso' in temp_df_for_cost_processing.columns:
+                    temp_df_for_cost_processing = temp_df_for_cost_processing.sort_values(by=['aviso', 'fecha_de_aviso']).reset_index(drop=True)
+                else:
+                    temp_df_for_cost_processing = temp_df_for_cost_processing.sort_values(by=['aviso']).reset_index(drop=True)
+
+                # Identificar filas duplicadas de 'aviso', manteniendo la primera ocurrencia.
+                # Las filas que son duplicadas (es decir, no son la primera aparición de ese 'aviso')
+                # tendrán 'True'.
+                duplicated_avisos_mask = temp_df_for_cost_processing.duplicated(subset=['aviso'], keep='first')
+
+                # Establecer 'costes_totreales' a 0 para todas las filas que son duplicados.
+                temp_df_for_cost_processing.loc[duplicated_avisos_mask, 'costes_totreales'] = 0
+
+                # Asignar la columna de 'costes_totreales' modificada de vuelta al DataFrame original.
+                # Asegúrate de que la asignación se realice por índice para que los valores se alineen
+                # correctamente en el DataFrame original.
+                df['costes_totreales'] = temp_df_for_cost_processing['costes_totreales']
 
             st.session_state['df'] = df
             st.success("¡Datos cargados y procesados exitosamente!")
