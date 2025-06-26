@@ -1280,8 +1280,12 @@ class EvaluacionProveedoresApp:
     def generar_resumen_evaluacion(self, df_filtered, selected_entity, mode):
     # Add this line at the very beginning of the function:
         total_scores_by_provider = {}
-        st.subheader("Generando resumen de evaluación...")
-
+        if mode == 'by_provider':
+            identifier = f"Evaluación por Proveedor: {selected_entity}"
+        elif mode == 'by_service_type':
+            identifier = f"Evaluación por Tipo de Servicio: {selected_entity}"
+        else:
+            identifier = "Evaluación General" # A default identifier if mode is neither
         if not st.session_state.get('all_evaluation_widgets_map'):
             st.warning("No hay evaluaciones para resumir. Selecciona un modo de evaluación y completa las evaluaciones.")
             return
