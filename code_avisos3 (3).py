@@ -1276,153 +1276,153 @@ class EvaluacionProveedoresApp:
         else:
             st.info("No hay métricas de desempeño disponibles por tipo de servicio para este proveedor.")
 
-def generar_resumen_evaluacion(self, df_filtered, selected_item, mode='by_provider'):
-        st.subheader("Generando resumen de evaluación...")
-
-        # Initialize total_scores_by_provider to an empty dictionary
-        # This resolves the UnboundLocalError if 'mode' is not 'by_provider'
-        total_scores_by_provider = {} # Line 1307
-
-        if mode == 'by_provider':
-            st.write(f"### Resumen de Calificación por Pregunta para {selected_item}")
-
-            # Define the structure for storing scores by question and service type
-            question_scores_by_service_type = {}
-            for service_type in df_filtered['tipo_de_servicio'].unique():
-                question_scores_by_service_type[service_type] = {q[1]: [] for q in preguntas}
-
-            # Group by 'Aviso' to process each record
-            for index, row in df_filtered.iterrows():
-                aviso_id = row['aviso']
-                service_type = row['tipo_de_servicio']
-
-                # Ensure service_type exists in our structure
-                if service_type not in question_scores_by_service_type:
-                    question_scores_by_service_type[service_type] = {q[1]: [] for q in preguntas}
-
-                # Retrieve scores for the current aviso, for the selected provider
-                if f"scores_{aviso_id}_{selected_item}" in st.session_state:
-                    scores_for_aviso = st.session_state[f"scores_{aviso_id}_{selected_item}"]
-
-                    for q_category, question_text, q_type in preguntas:
-                        if question_text in scores_for_aviso:
-                            score = scores_for_aviso[question_text]
-                            question_scores_by_service_type[service_type][question_text].append(score)
-
-            # Calculate average score per question per service type
-            avg_scores_display = []
-            for service_type, questions_data in question_scores_by_service_type.items():
-                for question_text, scores_list in questions_data.items():
-                    if scores_list:
-                        avg_score = np.mean(scores_list)
-                        avg_scores_display.append({
-                            "Tipo de Servicio": service_type,
-                            "Pregunta": question_text,
-                            "Puntuación Promedio": f"{avg_score:.2f}"
-                        })
-
-            if avg_scores_display:
-                df_avg_scores = pd.DataFrame(avg_scores_display)
-                st.dataframe(df_avg_scores, use_container_width=True)
-            else:
-                st.info("No hay calificaciones para mostrar para este proveedor.")
-
-            # Calculate total scores by provider based on current session state for all relevant avisos
-            total_scores_by_provider = {}
-            for aviso_id_key in st.session_state.keys():
-                if aviso_id_key.startswith("scores_"):
-                    # Extract aviso_id and provider_name from the key
-                    parts = aviso_id_key.split('_')
-                    current_aviso_id = int(parts[1])
-                    current_provider_name = '_'.join(parts[2:])
-
-                    # Only process scores for the selected provider for the by_provider mode
-                    if current_provider_name == selected_item:
-                        scores_for_aviso = st.session_state[aviso_id_key]
-                        total_score_aviso = sum(scores_for_aviso.values())
-
-                        if current_provider_name not in total_scores_by_provider:
-                            total_scores_by_provider[current_provider_name] = 0
-                        total_scores_by_provider[current_provider_name] += total_score_aviso
-
-            if total_scores_by_provider:
-                st.write("### Resumen de Calificación General por Proveedor")
-                # This is the line that caused the error previously
-                ranking_df = pd.DataFrame({'Puntuación Total': total_scores_by_provider}).sort_values('Puntuación Total', ascending=False)
-                st.dataframe(ranking_df, use_container_width=True)
-            else:
-                st.info("No se han registrado calificaciones totales para el proveedor seleccionado.")
-
-        elif mode == 'overall':
-            st.write("### Resumen de Calificación General de Todos los Proveedores")
-            all_providers_scores = {}
-
-            # Iterate through all avisos and sum up scores for each provider
-            for aviso_id_key in st.session_state.keys():
-                if aviso_id_key.startswith("scores_"):
-                    # Extract aviso_id and provider_name from the key
-                    parts = aviso_id_key.split('_')
-                    current_aviso_id = int(parts[1])
-                    current_provider_name = '_'.join(parts[2:])
-
-                    scores_for_aviso = st.session_state[aviso_id_key]
-                    total_score_aviso = sum(scores_for_aviso.values())
-
-                    if current_provider_name not in all_providers_scores:
-                        all_providers_scores[current_provider_name] = 0
-                    all_providers_scores[current_provider_name] += total_score_aviso
-
-            if all_providers_scores:
-                ranking_df = pd.DataFrame({'Puntuación Total': all_providers_scores}).sort_values('Puntuación Total', ascending=False)
-                st.dataframe(ranking_df, use_container_width=True)
-            else:
-                st.info("No se han registrado calificaciones para ningún proveedor.")
-
-        if st.button("Exportar Resumen a Excel"):
-            if 'ranking_df' in locals() and not ranking_df.empty: # Check if ranking_df was created
-                output = io.BytesIO()
-                writer = pd.ExcelWriter(output, engine='xlsxwriter')
-                ranking_df.to_excel(writer, sheet_name='Resumen_Evaluacion', index=True)
-                writer.close()
-                output.seek(0)
-                st.download_button(
-                    label="Descargar Excel de Resumen",
-                    data=output,
-                    file_name="resumen_evaluacion_proveedores.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
-            else:
-                st.warning("No hay datos de resumen para exportar. Por favor, genera la evaluación primero.")
-
-    def graficar_rendimiento(self, rendimiento_series):
-        if rendimiento_series.empty:
-            st.info("No hay datos de rendimiento para graficar.")
-            return
-
-        # Count occurrences of each category
-        # Ensure consistent order even if a category has 0 occurrences
-        rendimiento_counts = rendimiento_series.value_counts().reindex(['Alto', 'Medio', 'Bajo', 'No Aplica'], fill_value=0)
-
-        fig, ax = plt.subplots(figsize=(10, 6))
-        # Ensure colors match the meaning: Green for Alto, Amber for Medio, Red for Bajo, Grey for No Aplica
-        colors = ['#4CAF50', '#FFC107', '#FF5722', '#9E9E9E']
+        def generar_resumen_evaluacion(self, df_filtered, selected_item, mode='by_provider'):
+                st.subheader("Generando resumen de evaluación...")
         
-        # Match colors to reindexed order
-        ordered_colors = [colors[0] if c == 'Alto' else colors[1] if c == 'Medio' else colors[2] if c == 'Bajo' else colors[3] for c in rendimiento_counts.index]
+                # Initialize total_scores_by_provider to an empty dictionary
+                # This resolves the UnboundLocalError if 'mode' is not 'by_provider'
+                total_scores_by_provider = {} # Line 1307
         
-        bars = ax.bar(rendimiento_counts.index, rendimiento_counts.values, color=ordered_colors)
-        ax.set_title('Distribución de Rendimiento')
-        ax.set_xlabel('Nivel de Rendimiento')
-        ax.set_ylabel('Número de Entidades')
-        ax.set_ylim(0, rendimiento_counts.max() * 1.1)
-
-        # Add labels on top of bars
-        for bar in bars:
-            yval = bar.get_height()
-            ax.text(bar.get_x() + bar.get_width()/2, yval + 0.5, round(yval, 0), ha='center', va='bottom', fontsize=9) # Add 0.5 for slight offset
-
-        plt.tight_layout()
-        st.pyplot(fig)
+                if mode == 'by_provider':
+                    st.write(f"### Resumen de Calificación por Pregunta para {selected_item}")
+        
+                    # Define the structure for storing scores by question and service type
+                    question_scores_by_service_type = {}
+                    for service_type in df_filtered['tipo_de_servicio'].unique():
+                        question_scores_by_service_type[service_type] = {q[1]: [] for q in preguntas}
+        
+                    # Group by 'Aviso' to process each record
+                    for index, row in df_filtered.iterrows():
+                        aviso_id = row['aviso']
+                        service_type = row['tipo_de_servicio']
+        
+                        # Ensure service_type exists in our structure
+                        if service_type not in question_scores_by_service_type:
+                            question_scores_by_service_type[service_type] = {q[1]: [] for q in preguntas}
+        
+                        # Retrieve scores for the current aviso, for the selected provider
+                        if f"scores_{aviso_id}_{selected_item}" in st.session_state:
+                            scores_for_aviso = st.session_state[f"scores_{aviso_id}_{selected_item}"]
+        
+                            for q_category, question_text, q_type in preguntas:
+                                if question_text in scores_for_aviso:
+                                    score = scores_for_aviso[question_text]
+                                    question_scores_by_service_type[service_type][question_text].append(score)
+        
+                    # Calculate average score per question per service type
+                    avg_scores_display = []
+                    for service_type, questions_data in question_scores_by_service_type.items():
+                        for question_text, scores_list in questions_data.items():
+                            if scores_list:
+                                avg_score = np.mean(scores_list)
+                                avg_scores_display.append({
+                                    "Tipo de Servicio": service_type,
+                                    "Pregunta": question_text,
+                                    "Puntuación Promedio": f"{avg_score:.2f}"
+                                })
+        
+                    if avg_scores_display:
+                        df_avg_scores = pd.DataFrame(avg_scores_display)
+                        st.dataframe(df_avg_scores, use_container_width=True)
+                    else:
+                        st.info("No hay calificaciones para mostrar para este proveedor.")
+        
+                    # Calculate total scores by provider based on current session state for all relevant avisos
+                    total_scores_by_provider = {}
+                    for aviso_id_key in st.session_state.keys():
+                        if aviso_id_key.startswith("scores_"):
+                            # Extract aviso_id and provider_name from the key
+                            parts = aviso_id_key.split('_')
+                            current_aviso_id = int(parts[1])
+                            current_provider_name = '_'.join(parts[2:])
+        
+                            # Only process scores for the selected provider for the by_provider mode
+                            if current_provider_name == selected_item:
+                                scores_for_aviso = st.session_state[aviso_id_key]
+                                total_score_aviso = sum(scores_for_aviso.values())
+        
+                                if current_provider_name not in total_scores_by_provider:
+                                    total_scores_by_provider[current_provider_name] = 0
+                                total_scores_by_provider[current_provider_name] += total_score_aviso
+        
+                    if total_scores_by_provider:
+                        st.write("### Resumen de Calificación General por Proveedor")
+                        # This is the line that caused the error previously
+                        ranking_df = pd.DataFrame({'Puntuación Total': total_scores_by_provider}).sort_values('Puntuación Total', ascending=False)
+                        st.dataframe(ranking_df, use_container_width=True)
+                    else:
+                        st.info("No se han registrado calificaciones totales para el proveedor seleccionado.")
+        
+                elif mode == 'overall':
+                    st.write("### Resumen de Calificación General de Todos los Proveedores")
+                    all_providers_scores = {}
+        
+                    # Iterate through all avisos and sum up scores for each provider
+                    for aviso_id_key in st.session_state.keys():
+                        if aviso_id_key.startswith("scores_"):
+                            # Extract aviso_id and provider_name from the key
+                            parts = aviso_id_key.split('_')
+                            current_aviso_id = int(parts[1])
+                            current_provider_name = '_'.join(parts[2:])
+        
+                            scores_for_aviso = st.session_state[aviso_id_key]
+                            total_score_aviso = sum(scores_for_aviso.values())
+        
+                            if current_provider_name not in all_providers_scores:
+                                all_providers_scores[current_provider_name] = 0
+                            all_providers_scores[current_provider_name] += total_score_aviso
+        
+                    if all_providers_scores:
+                        ranking_df = pd.DataFrame({'Puntuación Total': all_providers_scores}).sort_values('Puntuación Total', ascending=False)
+                        st.dataframe(ranking_df, use_container_width=True)
+                    else:
+                        st.info("No se han registrado calificaciones para ningún proveedor.")
+        
+                if st.button("Exportar Resumen a Excel"):
+                    if 'ranking_df' in locals() and not ranking_df.empty: # Check if ranking_df was created
+                        output = io.BytesIO()
+                        writer = pd.ExcelWriter(output, engine='xlsxwriter')
+                        ranking_df.to_excel(writer, sheet_name='Resumen_Evaluacion', index=True)
+                        writer.close()
+                        output.seek(0)
+                        st.download_button(
+                            label="Descargar Excel de Resumen",
+                            data=output,
+                            file_name="resumen_evaluacion_proveedores.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        )
+                    else:
+                        st.warning("No hay datos de resumen para exportar. Por favor, genera la evaluación primero.")
+        
+            def graficar_rendimiento(self, rendimiento_series):
+                if rendimiento_series.empty:
+                    st.info("No hay datos de rendimiento para graficar.")
+                    return
+        
+                # Count occurrences of each category
+                # Ensure consistent order even if a category has 0 occurrences
+                rendimiento_counts = rendimiento_series.value_counts().reindex(['Alto', 'Medio', 'Bajo', 'No Aplica'], fill_value=0)
+        
+                fig, ax = plt.subplots(figsize=(10, 6))
+                # Ensure colors match the meaning: Green for Alto, Amber for Medio, Red for Bajo, Grey for No Aplica
+                colors = ['#4CAF50', '#FFC107', '#FF5722', '#9E9E9E']
+                
+                # Match colors to reindexed order
+                ordered_colors = [colors[0] if c == 'Alto' else colors[1] if c == 'Medio' else colors[2] if c == 'Bajo' else colors[3] for c in rendimiento_counts.index]
+                
+                bars = ax.bar(rendimiento_counts.index, rendimiento_counts.values, color=ordered_colors)
+                ax.set_title('Distribución de Rendimiento')
+                ax.set_xlabel('Nivel de Rendimiento')
+                ax.set_ylabel('Número de Entidades')
+                ax.set_ylim(0, rendimiento_counts.max() * 1.1)
+        
+                # Add labels on top of bars
+                for bar in bars:
+                    yval = bar.get_height()
+                    ax.text(bar.get_x() + bar.get_width()/2, yval + 0.5, round(yval, 0), ha='center', va='bottom', fontsize=9) # Add 0.5 for slight offset
+        
+                plt.tight_layout()
+                st.pyplot(fig)
 
 
     def graficar_resumen_proveedor(self, mttr_series, mtbf_series, disp_series, axis_label='Proveedor'):
