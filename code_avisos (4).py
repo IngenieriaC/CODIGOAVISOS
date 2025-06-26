@@ -131,7 +131,6 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-
 # --- Función de carga & unión (optimizada para Streamlit) ---
 @st.cache_data
 def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
@@ -200,7 +199,8 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
     # Filtrar solo las columnas que realmente existen en tmp4
     columnas_finales = [col for col in columnas_finales if col in tmp4.columns]
 
-    df = tmp4[columnas_finales]
+    return tmp4[columnas_finales]
+
 
     # Normalize column names more robustly from code_avisos (1).py
     ORIGINAL_EJECUTANTE_COL_NAME = "Denominación ejecutante"
