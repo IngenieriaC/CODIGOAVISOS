@@ -344,10 +344,11 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
     # Asegurar orden por aviso para consistencia
     df.sort_values(by=['aviso'], inplace=True)
     
-    # Agrupar por 'aviso' y distribuir suma de costos solo en la primera fila
-    df['costes_totreales'] = df.groupby('aviso')['costes_totreales'].transform(
-        lambda x: [x.sum()] + [0]*(len(x) - 1)
+    # Sumar los costos por aviso y dejar la suma solo en la primera fila, ceros en las demás
+    df['Costes tot.reales'] = df.groupby('Aviso')['Costes tot.reales'].transform(
+        lambda x: [x.sum()] + [0]*(len(x)-1)
     )
+
 
     return df
 
