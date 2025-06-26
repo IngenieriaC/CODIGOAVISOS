@@ -1277,6 +1277,7 @@ class EvaluacionProveedoresApp:
             st.info("No hay métricas de desempeño disponibles por tipo de servicio para este proveedor.")
 
 
+ 
     def generar_resumen_evaluacion(self, df_filtered, selected_entity, mode, preguntas):
         # Initialize a variable that will hold the scores for ranking,
         # which will be assigned based on the mode.
@@ -1294,6 +1295,12 @@ class EvaluacionProveedoresApp:
             return
 
         summary_data = []
+        # Initialize summary_df_calificacion and quantitative_metrics_df outside the if/elif
+        # to ensure they are always defined before use later in the function.
+        summary_df_calificacion = pd.DataFrame() 
+        quantitative_metrics_df = pd.DataFrame()
+
+
         quantitative_metrics_data = {
             'Identificador de Evaluación': identifier,
             'Tipo de Elemento Evaluado': [],
@@ -1389,10 +1396,10 @@ class EvaluacionProveedoresApp:
             ranking_title = f"Puntuación por Tipo de Servicio para el Proveedor: {prov_identifier}"
         else:
             # Handle the case where mode is neither 'by_service_type' nor 'by_provider'
-            # You might want to define a default behavior or raise an error
             st.warning("Modo de evaluación no reconocido.")
             return
 
+        # Check if summary_df_calificacion was populated in either block
         if summary_df_calificacion.empty:
             st.warning("No se pudieron generar datos de resumen de evaluación.")
             return
@@ -1472,6 +1479,88 @@ class EvaluacionProveedoresApp:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             key=f"download_button_{mode}_{identifier}"
         )
+
+# Example usage (assuming you have a Streamlit app structure)
+if __name__ == '__main__':
+    st.title("Sistema de Evaluación")
+
+    # Dummy DataFrame for demonstration
+    sample_data = {
+        'PROVEEDOR': ['Proveedor A', 'Proveedor B', 'Proveedor A', 'Proveedor C'],
+        'TIPO DE SERVICIO': ['Servicio X', 'Servicio Y', 'Servicio Z', 'Servicio X'],
+        'Costo Real': [100, 150, 200, 120],
+        'MTTR': [5, 8, 6, 7],
+        'MTBF': [100, 120, 90, 110],
+        'Disponibilidad': [99.5, 98.0, 99.0, 98.5]
+    }
+    df = pd.DataFrame(sample_data)
+
+    evaluator = Evaluator()
+
+    # Simulate evaluation data for demonstration
+    # This is critical for 'all_evaluation_widgets_map' to not be empty
+    if 'all_evaluation_widgets_map' not in st.session_state or not st.session_state.all_evaluation_widgets_map:
+        st.session_state.all_evaluation_widgets_map = {
+            # Example scores for 'by_service_type' mode
+            "by_service_type-Evaluación por Tipo de Servicio: Servicio X-Calidad-¿El servicio cumple con los estándares de calidad?-Proveedor A": 4,
+            "by_service_type-Evaluación por Tipo de Servicio: Servicio X-Tiempo Respuesta-¿El tiempo de respuesta fue adecuado?-Proveedor A": 3,
+            "by_service_type-Evaluación por Tipo de Servicio: Servicio X-Costo-¿El costo del servicio fue razonable?-Proveedor A": 5,
+            "by_service_type-Evaluación por Tipo de Servicio: Servicio X-Soporte-¿El soporte técnico fue eficiente?-Proveedor A": 4,
+            
+            "by_service_type-Evaluación por Tipo de Servicio: Servicio X-Calidad-¿El servicio cumple con los estándares de calidad?-Proveedor C": 3,
+            "by_service_type-Evaluación por Tipo de Servicio: Servicio X-Tiempo Respuesta-¿El tiempo de respuesta fue adecuado?-Proveedor C": 4,
+            "by_service_type-Evaluación por Tipo de Servicio: Servicio X-Costo-¿El costo del servicio fue razonable?-Proveedor C": 3,
+            "by_service_type-Evaluación por Tipo de Servicio: Servicio X-Soporte-¿El soporte técnico fue eficiente?-Proveedor C": 5,
+
+            # Example scores for 'by_provider' mode
+            "by_provider-Evaluación por Proveedor: Proveedor A-Calidad-¿El servicio cumple con los estándares de calidad?-Servicio X": 4,
+            "by_provider-Evaluación por Proveedor: Proveedor A-Tiempo Respuesta-¿El tiempo de respuesta fue adecuado?-Servicio X": 3,
+            "by_provider-Evaluación por Proveedor: Proveedor A-Costo-¿El costo del servicio fue razonable?-Servicio X": 5,
+            "by_provider-Evaluación por Proveedor: Proveedor A-Soporte-¿El soporte técnico fue eficiente?-Servicio X": 4,
+
+            "by_provider-Evaluación por Proveedor: Proveedor A-Calidad-¿El servicio cumple con los estándares de calidad?-Servicio Z": 5,
+            "by_provider-Evaluación por Proveedor: Proveedor A-Tiempo Respuesta-¿El tiempo de respuesta fue adecuado?-Servicio Z": 5,
+            "by_provider-Evaluación por Proveedor: Proveedor A-Costo-¿El costo del servicio fue razonable?-Servicio Z": 4,
+            "by_provider-Evaluación por Proveedor: Proveedor A-Soporte-¿El soporte técnico fue eficiente?-Servicio Z": 5,
+        }
+        # Simulate metrics data for by_service_type mode
+        st.session_state.current_service_type_metrics = {
+            'cnt': pd.Series({'Proveedor A': 2, 'Proveedor C': 1}),
+            'cost': pd.Series({'Proveedor A': 300, 'Proveedor C': 120}),
+            'mttr': pd.Series({'Proveedor A': 5.5, 'Proveedor C': 7.0}),
+            'mtbf': pd.Series({'Proveedor A': 95.0, 'Proveedor C': 110.0}),
+            'disp': pd.Series({'Proveedor A': 99.25, 'Proveedor C': 98.5}),
+            'rend': pd.Series({'Proveedor A': 'Alto', 'Proveedor C': 'Medio'})
+        }
+        # Simulate metrics data for by_provider mode
+        st.session_state.current_provider_service_type_metrics = {
+            'Servicio X': {'cnt': 1, 'cost': 100.0, 'mttr': 5.0, 'mtbf': 100.0, 'disp': 99.5, 'rend': 'Alto'},
+            'Servicio Z': {'cnt': 1, 'cost': 200.0, 'mttr': 6.0, 'mtbf': 90.0, 'disp': 99.0, 'rend': 'Alto'},
+        }
+
+    st.header("Generar Resumen de Evaluación")
+
+    evaluation_mode = st.radio("Seleccione el modo de evaluación:", ['by_service_type', 'by_provider'])
+
+    if evaluation_mode == 'by_service_type':
+        selected_service_type = st.selectbox(
+            "Seleccione Tipo de Servicio para evaluar proveedores:",
+            df['TIPO DE SERVICIO'].dropna().unique().tolist()
+        )
+        if selected_service_type:
+            df_filtered_by_st = df[df['TIPO DE SERVICIO'] == selected_service_type].copy()
+            # CALLING THE FUNCTION: Ensure 'preguntas' is passed
+            evaluator.generar_resumen_evaluacion(df_filtered_by_st, f"Tipo de Servicio: {selected_service_type}", mode='by_service_type', preguntas=evaluator.preguntas)
+
+    elif evaluation_mode == 'by_provider':
+        selected_provider = st.selectbox(
+            "Seleccione Proveedor para evaluar tipos de servicio:",
+            df['PROVEEDOR'].dropna().unique().tolist()
+        )
+        if selected_provider:
+            df_filtered_by_prov = df[df['PROVEEDOR'] == selected_provider].copy()
+            # CALLING THE FUNCTION: Ensure 'preguntas' is passed
+            evaluator.generar_resumen_evaluacion(df_filtered_by_prov, f"Proveedor: {selected_provider}", mode='by_provider', preguntas=evaluator.preguntas)
 
 
     def graficar_rendimiento(self, rendimiento_series):
