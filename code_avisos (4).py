@@ -20,30 +20,30 @@ st.set_page_config(
     page_title="Gerencia de Gestión Administrativa - Sura",
     layout="wide",
     initial_sidebar_state="expanded",
-    # Page icon (optional, you can change '📈' for yours)
-    # Open this link to see more emojis: https://www.webfx.com/tools/emoji-cheat-sheet/
+    # Page icon (opcional, puedes cambiar '📈' por el tuyo)
+    # Abre este enlace para ver más emojis: https://www.webfx.com/tools/emoji-cheat-sheet/
 )
 
-# CSS styles to set the theme in yellow, white and royal blue
+# Estilos CSS para ambientar en amarillo, blanco y azul rey
 st.markdown(
     """
     <style>
-    /* General background styles with gradient */
+    /* Estilos generales del fondo con degradado */
     .stApp {
-        background: linear-gradient(to right, #FFFFFF, #FFFACD, #4169E1); /* White, Light Yellow (Cream), Royal Blue */
-        color: #333333; /* General text color */
+        background: linear-gradient(to right, #FFFFFF, #FFFACD, #4169E1); /* Blanco, Amarillo claro (Cream), Azul Rey */
+        color: #333333; /* Color de texto general */
     }
     /* Sidebar */
-    .st-emotion-cache-1oe6z58 { /* This class may change in future Streamlit versions */
-        background-color: #F0F8FF; /* Light blue for the sidebar */
+    .st-emotion-cache-1oe6z58 { /* Esta clase puede cambiar en futuras versiones de Streamlit */
+        background-color: #F0F8FF; /* Azul claro para la sidebar */
     }
-    /* Titles */
+    /* Títulos */
     h1, h2, h3, h4, h5, h6 {
-        color: #4169E1; /* Royal Blue for titles */
+        color: #4169E1; /* Azul Rey para los títulos */
     }
-    /* Buttons */
+    /* Botones */
     .stButton>button {
-        background-color: #4169E1; /* Royal Blue for buttons */
+        background-color: #4169E1; /* Azul Rey para los botones */
         color: white;
         border: none;
         padding: 0.75rem 1.5rem;
@@ -51,29 +51,29 @@ st.markdown(
         transition: background-color 0.3s ease;
     }
     .stButton>button:hover {
-        background-color: #F8D568; /* Yellow for hover */
+        background-color: #F8D568; /* Amarillo para hover */
         color: #4169E1;
         border: 1px solid #4169E1;
     }
-    /* Main content containers */
-    .st-emotion-cache-z5fcl4, .st-emotion-cache-1c7y2kl, .st-emotion-cache-nahz7x { /* Generic classes for containers */
-        background-color: rgba(255, 255, 255, 0.9); /* Semi-transparent white */
+    /* Contenedores de contenido principal */
+    .st-emotion-cache-z5fcl4, .st-emotion-cache-1c7y2kl, .st-emotion-cache-nahz7x { /* Clases genéricas para contenedores */
+        background-color: rgba(255, 255, 255, 0.9); /* Blanco semitransparente */
         padding: 1.5rem;
         border-radius: 0.75rem;
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
         margin-bottom: 1rem;
     }
-    /* Improvements for the table (dataframe) */
+    /* Mejoras para la tabla (dataframe) */
     .streamlit-dataframe {
         border-radius: 0.5rem;
-        overflow: hidden; /* Ensures rounded corners apply well */
+        overflow: hidden; /* Asegura que las esquinas redondeadas se apliquen bien */
     }
     </style>
     """,
     unsafe_allow_html=True
 )
 
-# --- Welcome and header ---
+# --- Bienvenida y encabezado ---
 st.title("¡Hola, usuario Sura! 👋")
 st.markdown("---")
 st.header("Proyecto de **Gerencia de Gestión Administrativa** en Ingeniería Clínica")
@@ -82,21 +82,21 @@ st.markdown("""
     Por favor, **sube el archivo `DATA2.XLSX`** para comenzar.
 """)
 
-# --- Load & merge function (optimized for Streamlit) ---
+# --- Función de carga & unión (optimizada para Streamlit) ---
 @st.cache_data
 def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
     """
-    Loads and merges data from different sheets of an Excel file.
+    Carga y fusiona los datos de las diferentes hojas de un archivo Excel.
 
     Args:
-        uploaded_file_buffer (io.BytesIO): Buffer of the Excel file uploaded by the user.
+        uploaded_file_buffer (io.BytesIO): Buffer del archivo Excel subido por el usuario.
 
     Returns:
-        pd.DataFrame: The combined and cleaned DataFrame.
+        pd.DataFrame: El DataFrame combinado y limpio.
     """
-    # Load sheets directly from the buffer
+    # Cargar hojas directamente desde el buffer
     iw29 = pd.read_excel(uploaded_file_buffer, sheet_name=0)
-    uploaded_file_buffer.seek(0) # Rewind the buffer to read the next sheet
+    uploaded_file_buffer.seek(0) # Rebobinar el buffer para leer la siguiente hoja
     iw39 = pd.read_excel(uploaded_file_buffer, sheet_name=1)
     uploaded_file_buffer.seek(0)
     ih08 = pd.read_excel(uploaded_file_buffer, sheet_name=2)
@@ -105,33 +105,33 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
     uploaded_file_buffer.seek(0)
     zpm015 = pd.read_excel(uploaded_file_buffer, sheet_name=4)
 
-    # Clean headers
+    # Limpiar encabezados
     for df_temp in (iw29, iw39, ih08, iw65, zpm015):
         df_temp.columns = df_temp.columns.str.strip()
 
-    # Save original "Equipo" from IW29 to avoid loss
+    # Guardar "Equipo" original desde IW29 para evitar pérdida
     equipo_original = iw29[["Aviso", "Equipo", "Duración de parada", "Descripción"]].copy()
 
-    # Extract only necessary columns from iw39 for merging (including 'Total general (real)')
+    # Extraer solo columnas necesarias de iw39 para el merge (incluyendo 'Total general (real)')
     iw39_subset = iw39[["Aviso", "Total general (real)"]]
 
-    # Merge by 'Aviso'
+    # Unir por 'Aviso'
     tmp1 = pd.merge(iw29, iw39_subset, on="Aviso", how="left")
     tmp2 = pd.merge(tmp1, iw65, on="Aviso", how="left")
 
-    # Restore the original "Equipo" value from IW29 after merging
+    # Restaurar el valor original de "Equipo" de IW29 después del merge
     tmp2.drop(columns=["Equipo"], errors='ignore', inplace=True)
     tmp2 = pd.merge(tmp2, equipo_original, on="Aviso", how="left")
 
-    # Merge by 'Equipo' with IH08
+    # Unir por 'Equipo' con IH08
     tmp3 = pd.merge(tmp2, ih08[[
         "Equipo", "Inic.garantía prov.", "Fin garantía prov.", "Texto", "Indicador ABC", "Denominación de objeto técnico"
     ]], on="Equipo", how="left")
 
-    # Merge by 'Equipo' with ZPM015
+    # Unir por 'Equipo' con ZPM015
     tmp4 = pd.merge(tmp3, zpm015[["Equipo", "TIPO DE SERVICIO"]], on="Equipo", how="left")
 
-    # Rename columns
+    # Renombrar columnas
     tmp4.rename(columns={
         "Texto": "Texto_equipo",
         "Total general (real)": "Costes tot.reales"
@@ -147,7 +147,7 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
         "Texto grupo acción", "TIPO DE SERVICIO"
     ]
 
-    # Filter only the columns that actually exist in tmp4
+    # Filtrar solo las columnas que realmente existen en tmp4
     columnas_finales = [col for col in columnas_finales if col in tmp4.columns]
 
     df = tmp4[columnas_finales]
@@ -239,16 +239,17 @@ if uploaded_file:
         try:
             df = load_and_merge_data(file_buffer)
 
-            # --- Procesamiento adicional restaurado aquí ---
+            # --- Procesamiento adicional ---
             # Eliminar registros cuyo 'Status del sistema' contenga "PTBO"
             initial_rows = len(df)
             df = df[~df["Status del sistema"].str.contains("PTBO", case=False, na=False)]
             st.info(f"Se eliminaron {initial_rows - len(df)} registros con 'PTBO' en 'Status del sistema'.")
 
-            # Dejar solo una fila con coste por cada aviso (lógica restaurada)
-            df['Costes tot.reales'] = df.groupby('Aviso')['Costes tot.reales'].transform(
-                lambda x: [x.iloc[0]] + [0]*(len(x)-1)
-            )
+            # La línea para dejar solo una fila con coste por cada aviso ha sido ELIMINADA.
+            # Esto asegura que todos los avisos, incluso si son duplicados, se mantengan y sus costes se sumen.
+            # df['Costes tot.reales'] = df.groupby('Aviso')['Costes tot.reales'].transform(
+            #     lambda x: [x.iloc[0]] + [0]*(len(x)-1)
+            # )
 
             # Asignar columnas relevantes a nombres simplificados para facilitar el acceso
             df['PROVEEDOR'] = df['Denominación ejecutante']
@@ -786,6 +787,7 @@ class EvaluacionProveedoresApp:
             st.session_state['evaluation_page_providers'] = 0 # Reset page
             st.session_state['selected_service_type'] = "Seleccionar..." # Reset service type
             st.session_state['selected_provider_eval'] = "Seleccionar..." # Reset provider
+            st.session_state['all_evaluation_widgets_map'] = {} # Clear map on mode change
             st.session_state['evaluation_page_service_types_for_provider'] = 0
             st.rerun()
 
@@ -1522,7 +1524,10 @@ if st.session_state['page'] == 'upload':
             navigate_to('costos_avisos')
         except Exception as e:
             st.error(f"Hubo un error al procesar el archivo: {e}")
-            st.warning("Asegúrate de que el archivo Excel contenga las hojas correctas y los formatos esperados.")
+            st.warning("Por favor, verifica que el archivo subido sea .XLSX` y tenga el formato de hojas esperado.")
+            st.exception(e) # Muestra el traceback completo para depuración
+else:
+    st.info("⬆️ Sube tu archivo  para empezar con el análisis.")
 
 elif st.session_state['page'] == 'costos_avisos':
     if 'df' in st.session_state and st.session_state['df'] is not None:
