@@ -196,7 +196,8 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
         "Indicador ABC", "Texto código acción", "Texto de acción",
         "Texto grupo acción", "TIPO DE SERVICIO"
     ]
-if 'Total general (real)' in df_iw39.columns:
+
+    if 'Total general (real)' in df_iw39.columns:
         # Renombrar la columna antes de la limpieza para mayor claridad
         df_iw39 = df_iw39.rename(columns={'Total general (real)': 'costes_totreales'})
         
@@ -216,7 +217,6 @@ if 'Total general (real)' in df_iw39.columns:
     else:
         st.warning("La hoja 'iw39' no contiene la columna 'Total general (real)'. Asegúrate de que el nombre sea exacto.")
         df_iw39['costes_totreales'] = 0 # Asigna 0 para evitar errores si la columna no existe.
-
 
     # Filtrar solo las columnas que realmente existen en tmp4
     columnas_finales = [col for col in columnas_finales if col in tmp4.columns]
