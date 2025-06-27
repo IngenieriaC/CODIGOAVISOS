@@ -202,7 +202,7 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
     return tmp4[columnas_finales]
 
 
-    # Normalize column names more robustly from code_avisos (1).py
+    # Normalize column names 
     ORIGINAL_EJECUTANTE_COL_NAME = "Denominación ejecutante"
     ORIGINAL_CP_COL_NAME = "Código postal"
     ORIGINAL_OBJETO_TECNICO_COL_NAME = "Denominación de objeto técnico"
@@ -626,7 +626,7 @@ class CostosAvisosApp:
         # Sidebar filters for Costos y Avisos
         st.sidebar.markdown("---")
         st.sidebar.header("Filtros para Análisis")
-        all_providers = ['Todos'] + sorted(self.df['PROVEEDOR'].dropna().unique().tolist())
+        all_providers = ['Todos'] + sorted(self.df['EJECUTANTE_COL_NAME'].dropna().unique().tolist())
         selected_provider_costos = st.sidebar.selectbox("Selecciona Proveedor:", all_providers, key='costos_provider_filter')
 
         all_service_types = ['Todos'] + sorted(self.df['TIPO DE SERVICIO'].dropna().unique().tolist())
