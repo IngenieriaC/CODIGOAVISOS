@@ -519,6 +519,7 @@ class CostosAvisosApp:
         self.COL_COSTOS_NORMALIZED = 'costes_totreales'
         self.COL_AVISO_NORMALIZED = 'aviso'
         self.COL_FECHA_AVISO_NORMALIZED = 'fecha_de_aviso'
+        self.COL_TIEMPO_PARADA_NORMALIZED = 'tiempo_parada' # Added for detail table
 
         self.opciones_menu = {
             "Costos por ejecutante": (self.EJECUTANTE_COL_NAME_NORMALIZED, self.COL_COSTOS_NORMALIZED, "costos"),
@@ -624,7 +625,7 @@ class CostosAvisosApp:
             st.markdown(f"#### {selected_analysis_key}")
             # Get full sorted data for pagination
             full_data_sorted = filtered_df_costos.groupby(group_col)[self.COL_AVISO_NORMALIZED].nunique().sort_values(ascending=False)
-            title = f'Top {selected_analysis_key}'
+            title = f'Top {selected_analysis_key}' # This line was incomplete.
             xlabel = group_col.replace("_", " ").title()
             ylabel = 'Número de Avisos'
             self._display_paged_table_and_plot(full_data_sorted, title, xlabel, ylabel, "avisos", color_palette='viridis')
@@ -655,7 +656,7 @@ class CostosAvisosApp:
 
         st.markdown("### Detalle de Datos Filtrados (Primeras 100 Filas)")
         # Ensure column names match the standardized ones
-        st.dataframe(filtered_df_costos[[self.COL_AVISO_NORMALIZED, self.COL_FECHA_AVISO_NORMALIZED, self.EJECUTANTE_COL_NAME_NORMALIZED, 'tipo_de_servicio', 'descripcion', self.COL_COSTOS_NORMALIZED, 'tiempo_parada']].head(100))
+        st.dataframe(filtered_df_costos[[self.COL_AVISO_NORMALIZED, self.COL_FECHA_AVISO_NORMALIZED, self.EJECUTANTE_COL_NAME_NORMALIZED, 'tipo_de_servicio', 'descripcion', self.COL_COSTOS_NORMALIZED, self.COL_TIEMPO_PARADA_NORMALIZED]].head(100))
 
 
     def _plot_bar_chart(self, data, title, xlabel, ylabel, color_palette='coolwarm'):
@@ -1022,27 +1023,27 @@ class EvaluacionProveedoresApp:
             # Optional: Auto-adjust column widths for better readability
             for sheet_name in writer.sheets:
                 worksheet = writer.sheets[sheet_name]
-                for idx, col in enumerate(writer.sheets[sheet_name].columns): # Iterate through columns in the sheet
-                    max_len = 0
-                    if sheet_name == 'Calificaciones por Pregunta':
-                        # For MultiIndex, adjust first two columns manually
-                        if idx == 0: # 'Categoría'
-                            max_len = 20
-                        elif idx == 1: # 'Pregunta'
-                            max_len = 60
-                        else:
-                            # For other columns, calculate max length from data
-                            if not summary_df_calificacion.iloc[:, idx-2].empty:
-                                max_len = max(
-                                    len(str(col)),
-                                    (summary_df_calificacion.iloc[:, idx-2].astype(str).map(len).max() if not summary_df_calificacion.iloc[:, idx-2].empty else 0)
-                                ) + 2
-                    elif sheet_name == 'Metricas Cuantitativas':
-                         if not quantitative_metrics_df[col].empty:
-                            max_len = max(len(str(col)), (quantitative_metrics_df[col].astype(str).map(len).max() if not quantitative_metrics_df[col].empty else 0)) + 2
+                # Adjust column widths for qualitative metrics
+                if sheet_name == 'Calificaciones por Pregunta':
+                    # Manually set width for MultiIndex columns
+                    worksheet.set_column(0, 0, 20) # Categoría
+                    worksheet.set_column(1, 1, 60) # Pregunta
+                    # Dynamically set width for provider/service type columns
+                    for col_idx in range(2, len(summary_df_calificacion.columns) + 2):
+                        max_len = max(
+                            len(str(summary_df_calificacion.columns[col_idx-2])),
+                            (summary_df_calificacion.iloc[:, col_idx-2].astype(str).map(len).max() if not summary_df_calificacion.iloc[:, col_idx-2].empty else 0)
+                        ) + 2
+                        worksheet.set_column(col_idx, col_idx, max_len)
+                # Adjust column widths for quantitative metrics
+                elif sheet_name == 'Metricas Cuantitativas':
+                    for col_idx, col_name in enumerate(quantitative_metrics_df.columns):
+                        max_len = max(
+                            len(str(col_name)),
+                            (quantitative_metrics_df[col_name].astype(str).map(len).max() if not quantitative_metrics_df[col_name].empty else 0)
+                        ) + 2
+                        worksheet.set_column(col_idx, col_idx, max_len)
 
-                    if max_len > 0:
-                        worksheet.set_column(idx, idx, max_len)
 
         st.download_button(
             label="Descargar Resumen de Evaluación como Excel",
@@ -1154,7 +1155,7 @@ if 'page' not in st.session_state:
 
 def navigate_to(page):
     st.session_state['page'] = page
-    st.rerun()
+    st.experimental_rerun() # Using experimental_rerun for consistency
 
 # Sidebar for navigation
 with st.sidebar:
