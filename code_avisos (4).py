@@ -197,7 +197,7 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
         "Texto grupo acción", "TIPO DE SERVICIO"
     ]
 
-     try:
+    try:
         # Hoja 2: iw39
         df_iw39 = pd.read_excel(uploaded_file, sheet_name='iw39')
         
