@@ -10,11 +10,12 @@ import io
 import numpy as np
 # --- Configuración de la página (temática Sura) ---
 st.set_page_config(
-    page_title="Gestión Administrativa - Sura",
+    page_title="Gerencia de Gestión Administrativa - Sura",
     layout="wide",
     initial_sidebar_state="expanded",
     # Icono de la página (opcional, puedes cambiar '📈' por el tuyo)
     # Abre este enlace para ver más emojis: https://www.webfx.com/tools/emoji-cheat-sheet/
+    icon="⚙️"
 )
 
 # Estilos CSS para ambientar en amarillo, blanco y azul rey
@@ -69,68 +70,11 @@ st.markdown(
 # --- Bienvenida y encabezado ---
 st.title("¡Hola, usuario Sura! 👋")
 st.markdown("---")
-st.header("Proyecto de **Gestión Administrativa** en Ingeniería Clínica")
+st.header("Proyecto de **Gerencia de Gestión Administrativa** en Ingeniería Clínica")
 st.markdown("""
-    Aquí podrás **analizar y gestionar los datos de avisos** para optimizar los procesos. Creado por Naida López Aprendiz Universitaria.
+    Aquí podrás **analizar y gestionar los datos de avisos** para optimizar los procesos.
+    Por favor, **sube el archivo `DATA2.XLSX`** para comenzar.
 """)
-# Set a nice style for plots
-sns.set_style('whitegrid')
-
-# --- Configuración de la página (temática Sura) ---
-st.set_page_config(
-    page_title="Gerencia de Gestión Administrativa - Sura",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
-
-# Estilos CSS para ambientar en amarillo, blanco y azul rey
-st.markdown(
-    """
-    <style>
-    /* Estilos generales del fondo con degradado */
-    .stApp {
-        background: linear-gradient(to right, #FFFFFF, #FFFACD, #4169E1); /* Blanco, Amarillo claro (Cream), Azul Rey */
-        color: #333333; /* Color de texto general */
-    }
-    /* Sidebar */
-    .st-emotion-cache-1oe6z58 { /* Esta clase puede cambiar en futuras versiones de Streamlit */
-        background-color: #F0F8FF; /* Azul claro para la sidebar */
-    }
-    /* Títulos */
-    h1, h2, h3, h4, h5, h6 {
-        color: #4169E1; /* Azul Rey para los títulos */
-    }
-    /* Botones */
-    .stButton>button {
-        background-color: #4169E1; /* Azul Rey para los botones */
-        color: white;
-        border: none;
-        padding: 0.75rem 1.5rem;
-        border-radius: 0.5rem;
-        transition: background-color 0.3s ease;
-    }
-    .stButton>button:hover {
-        background-color: #F8D568; /* Amarillo para hover */
-        color: #4169E1;
-        border: 1px solid #4169E1;
-    }
-    /* Contenedores de contenido principal */
-    .st-emotion-cache-z5fcl4, .st-emotion-cache-1c7y2kl, .st-emotion-cache-nahz7x { /* Clases genéricas para contenedores */
-        background-color: rgba(255, 255, 255, 0.9); /* Blanco semitransparente */
-        padding: 1.5rem;
-        border-radius: 0.75rem;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        margin-bottom: 1rem;
-    }
-    /* Mejoras para la tabla (dataframe) */
-    .streamlit-dataframe {
-        border-radius: 0.5rem;
-        overflow: hidden; /* Asegura que las esquinas redondeadas se apliquen bien */
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
 
 # --- Función de carga & unión (optimizada para Streamlit) ---
 @st.cache_data
@@ -200,7 +144,7 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
     # Filtrar solo las columnas que realmente existen en tmp4
     columnas_finales = [col for col in columnas_finales if col in tmp4.columns]
 
-    return tmp4[columnas_finales]
+    df = tmp4[columnas_finales]
 
     # Normalize column names more robustly from code_avisos (1).py
     ORIGINAL_EJECUTANTE_COL_NAME = "Denominación ejecutante"
@@ -1469,7 +1413,6 @@ class EvaluacionProveedoresApp:
             # In the `_display_evaluation_by_provider` method, it's `all_service_types_for_provider`.
             # We can retrieve it from the session state if needed, or simply re-calculate.
             # For simplicity, let's directly re-calculate from df_filtered_by_provider if needed here.
-            # This assumes df_filtered_by_provider is accessible or can be recreated.
             
             # Recreate all_service_types_for_provider based on the selected provider.
             # This is less efficient but ensures correctness if session state is complex.
