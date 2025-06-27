@@ -119,7 +119,7 @@ st.markdown(
         background-color: rgba(255, 255, 255, 0.9); /* Blanco semitransparente */
         padding: 1.5rem;
         border-radius: 0.75rem;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        box_shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
         margin-bottom: 1rem;
     }
     /* Mejoras para la tabla (dataframe) */
@@ -664,11 +664,6 @@ class CostosAvisosApp:
             )
             df_temp = df_temp[df_temp[group_col].isin(selected_group_values)]
 
-        # --- Data Cleaning (Adjusted for user's request) ---
-        # No duplicate removal as per user's request
-        
-        # No PTBO status removal as per user's request
-        
         if df_temp.empty:
             st.warning("No hay datos para mostrar con los filtros seleccionados.")
             return
@@ -730,10 +725,6 @@ class CostosAvisosApp:
             (df_filtered[self.COL_FECHA_AVISO_NORMALIZED] <= date_range[1])
         ]
         
-        # No duplicate removal as per user's request
-        
-        # No PTBO status removal as per user's request
-
         if df_filtered.empty:
             st.warning("No hay datos para mostrar con los filtros seleccionados.")
             return
@@ -926,7 +917,7 @@ class EvaluacionProveedoresApp:
 # --- NAVEGACIÓN DE LA APLICACIÓN ---
 def navigate_to(page_name):
     st.session_state['page'] = page_name
-    st.experimental_rerun() # Forces a rerun to switch pages
+    st.rerun() # Forces a rerun to switch pages
 
 if 'page' not in st.session_state:
     st.session_state['page'] = 'cargar_datos' # Default page
