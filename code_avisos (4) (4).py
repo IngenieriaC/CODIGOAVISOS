@@ -287,7 +287,7 @@ rangos_detallados = {
             0: "Cumple con los requisitos mínimos establecidos",
             -1: "No corresponde con lo contratado o presenta deficiencias importantes"
         },
-        "¿La facturación refleja correctamente lo ejecutado y acordado?", "2,1,0,-1": { # Original was incorrect, fixed in next version
+        "¿La facturación refleja correctamente lo ejecutado y acordado?": {
             2: "Facturación precisa, sin errores y con toda la información requerida",
             1: "Facturación con pequeños errores que no afectan el control",
             0: "Facturación con errores importantes (por ejemplo, precios)",
@@ -772,9 +772,17 @@ class EvaluacionProveedoresApp:
             st.markdown("---")
 
             # Calculate and store metrics for the selected service type and its providers
-            cnt, cost, mttr, mtbf, disp, rend = calcular_indicadores(service_type_filtered_df, group_col=self.EJECUTANTE_COL_NAME_NORMALIZED)
+            indicadores_result = calcular_indicadores(service_type_filtered_df, group_col=self.EJECUTANTE_COL_NAME_NORMALIZED)
 
-            # Store as dictionary of series for easy access in summary
+            # Convert to dictionary of series for easy access in summary, indexed by provider
+            cnt = indicadores_result.set_index(self.EJECUTANTE_COL_NAME_NORMALIZED)['Avisos'] if not indicadores_result.empty else pd.Series(dtype=int)
+            cost = indicadores_result.set_index(self.EJECUTANTE_COL_NAME_NORMALIZED)['Costo Total'] if not indicadores_result.empty else pd.Series(dtype=float)
+            mttr = indicadores_result.set_index(self.EJECUTANTE_COL_NAME_NORMALIZED)['MTTR Promedio (hrs)'] if not indicadores_result.empty else pd.Series(dtype=float)
+            mtbf = indicadores_result.set_index(self.EJECUTANTE_COL_NAME_NORMALIZED)['MTBF Promedio (hrs)'] if not indicadores_result.empty else pd.Series(dtype=float)
+            disp = indicadores_result.set_index(self.EJECUTANTE_COL_NAME_NORMALIZED)['Disponibilidad Promedio (%)'] if not indicadores_result.empty else pd.Series(dtype=float)
+            rend = indicadores_result.set_index(self.EJECUTANTE_COL_NAME_NORMALIZED)['Rendimiento'] if not indicadores_result.empty else pd.Series(dtype=str)
+
+
             st.session_state['current_service_type_metrics'] = {
                 'cnt': cnt, 'cost': cost, 'mttr': mttr, 'mtbf': mtbf, 'disp': disp, 'rend': rend
             }
@@ -845,19 +853,23 @@ class EvaluacionProveedoresApp:
                 specific_sts_df = provider_filtered_df[provider_filtered_df[self.COL_SERVICE_TYPE_NORMALIZED] == service_type]
                 
                 # Calculate and store metrics for this specific service type
-                cnt, cost, mttr, mtbf, disp, rend = calcular_indicadores(specific_sts_df, group_col=self.COL_SERVICE_TYPE_NORMALIZED)
-                
-                # Store the metrics as individual series within a dictionary for this service type
-                # The index of these series will be the service type itself (due to group_col=self.COL_SERVICE_TYPE_NORMALIZED)
-                # We extract the scalar values for display and store them as a dictionary within current_provider_service_type_metrics
-                sts_metrics = {
-                    'cnt': cnt.get(service_type, 0),
-                    'cost': cost.get(service_type, 0.0),
-                    'mttr': mttr.get(service_type, np.nan),
-                    'mtbf': mtbf.get(service_type, np.nan),
-                    'disp': disp.get(service_type, np.nan),
-                    'rend': rend.get(service_type, 'No Aplica')
-                }
+                indicadores_result = calcular_indicadores(specific_sts_df, group_col=self.COL_SERVICE_TYPE_NORMALIZED)
+
+                # Extract scalar values from the indicators_result DataFrame (which will have one row)
+                if not indicadores_result.empty:
+                    sts_metrics = {
+                        'cnt': indicadores_result['Avisos'].iloc[0],
+                        'cost': indicadores_result['Costo Total'].iloc[0],
+                        'mttr': indicadores_result['MTTR Promedio (hrs)'].iloc[0],
+                        'mtbf': indicadores_result['MTBF Promedio (hrs)'].iloc[0],
+                        'disp': indicadores_result['Disponibilidad Promedio (%)'].iloc[0],
+                        'rend': indicadores_result['Rendimiento'].iloc[0]
+                    }
+                else:
+                    sts_metrics = {
+                        'cnt': 0, 'cost': 0.0, 'mttr': np.nan, 'mtbf': np.nan, 'disp': np.nan, 'rend': 'No Aplica'
+                    }
+
                 st.session_state['current_provider_service_type_metrics'][service_type] = sts_metrics
 
                 # Display quantitative metrics for this service type
@@ -888,6 +900,7 @@ class EvaluacionProveedoresApp:
                 self.generar_resumen_evaluacion(provider_filtered_df, st.session_state['selected_provider_eval'], 'by_provider')
                 
                 # Prepare data for plotting from current_provider_service_type_metrics
+                # Ensure these series are correctly built from the stored dictionary of metrics
                 mttr_series = pd.Series({k: v['mttr'] for k, v in st.session_state['current_provider_service_type_metrics'].items()})
                 mtbf_series = pd.Series({k: v['mtbf'] for k, v in st.session_state['current_provider_service_type_metrics'].items()})
                 disp_series = pd.Series({k: v['disp'] for k, v in st.session_state['current_provider_service_type_metrics'].items()})
