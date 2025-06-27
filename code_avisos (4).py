@@ -8,6 +8,7 @@ import seaborn as sns
 import re
 import io
 import numpy as np
+
 # --- Configuración de la página (temática Sura) ---
 st.set_page_config(
     page_title="Gestión Administrativa - Sura",
@@ -66,77 +67,16 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# --- Bienvenida y encabezado ---
-st.title("¡Hola, usuario Sura! 👋")
-st.markdown("---")
-st.header("Proyecto de **Gestión Administrativa** en Ingeniería Clínica")
-st.markdown("""
-    Aquí podrás **analizar y gestionar los datos de avisos** para optimizar los procesos. Creado por Naida López Aprendiz Universitaria.
-""")
-# Set a nice style for plots
+# --- Set a nice style for plots ---
 sns.set_style('whitegrid')
-
-# --- Configuración de la página (temática Sura) ---
-st.set_page_config(
-    page_title="Gerencia de Gestión Administrativa - Sura",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
-
-# Estilos CSS para ambientar en amarillo, blanco y azul rey
-st.markdown(
-    """
-    <style>
-    /* Estilos generales del fondo con degradado */
-    .stApp {
-        background: linear-gradient(to right, #FFFFFF, #FFFACD, #4169E1); /* Blanco, Amarillo claro (Cream), Azul Rey */
-        color: #333333; /* Color de texto general */
-    }
-    /* Sidebar */
-    .st-emotion-cache-1oe6z58 { /* Esta clase puede cambiar en futuras versiones de Streamlit */
-        background-color: #F0F8FF; /* Azul claro para la sidebar */
-    }
-    /* Títulos */
-    h1, h2, h3, h4, h5, h6 {
-        color: #4169E1; /* Azul Rey para los títulos */
-    }
-    /* Botones */
-    .stButton>button {
-        background-color: #4169E1; /* Azul Rey para los botones */
-        color: white;
-        border: none;
-        padding: 0.75rem 1.5rem;
-        border-radius: 0.5rem;
-        transition: background-color 0.3s ease;
-    }
-    .stButton>button:hover {
-        background-color: #F8D568; /* Amarillo para hover */
-        color: #4169E1;
-        border: 1px solid #4169E1;
-    }
-    /* Contenedores de contenido principal */
-    .st-emotion-cache-z5fcl4, .st-emotion-cache-1c7y2kl, .st-emotion-cache-nahz7x { /* Clases genéricas para contenedores */
-        background-color: rgba(255, 255, 255, 0.9); /* Blanco semitransparente */
-        padding: 1.5rem;
-        border-radius: 0.75rem;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        margin-bottom: 1rem;
-    }
-    /* Mejoras para la tabla (dataframe) */
-    .streamlit-dataframe {
-        border-radius: 0.5rem;
-        overflow: hidden; /* Asegura que las esquinas redondeadas se apliquen bien */
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
 
 # --- Función de carga & unión (optimizada para Streamlit) ---
 @st.cache_data
 def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
     """
     Carga y fusiona los datos de las diferentes hojas de un archivo Excel.
+    Esta función ahora solo carga, fusiona y renombra columnas,
+    sin aplicar filtros ni transformaciones de costos.
 
     Args:
         uploaded_file_buffer (io.BytesIO): Buffer del archivo Excel subido por el usuario.
@@ -200,7 +140,7 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
     # Filtrar solo las columnas que realmente existen en tmp4
     columnas_finales = [col for col in columnas_finales if col in tmp4.columns]
 
-    df = tmp4[columnas_finales]
+    df_loaded = tmp4[columnas_finales]
 
     # Normalize column names more robustly from code_avisos (1).py
     ORIGINAL_EJECUTANTE_COL_NAME = "Denominación ejecutante"
@@ -208,16 +148,15 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
     ORIGINAL_OBJETO_TECNICO_COL_NAME = "Denominación de objeto técnico"
     ORIGINAL_TEXTO_CODIGO_ACCION_COL_NAME = "Texto código acción"
     ORIGINAL_TEXTO_ACCION_COL_NAME = "Texto de acción"
-    ORIGINAL_TIPO_SERVICIO_COL_NAME = "TIPO DE SERVICIO" # Changed to match actual column in ZPM015 sheet
+    ORIGINAL_TIPO_SERVICIO_COL_NAME = "TIPO DE SERVICIO"
     ORIGINAL_COSTOS_COL_NAME = "Costes tot.reales"
     ORIGINAL_DESCRIPTION_COL_NAME = "Descripción"
     ORIGINAL_FECHA_AVISO_COL_NAME = "Fecha de aviso"
-    # ORIGINAL_TEXTO_POSICION_COL_NAME = "Texto de Posición" # This is the missing column, keeping commented
     ORIGINAL_TEXTO_EQUIPO_COL_NAME = "Texto_equipo"
     ORIGINAL_DURACION_PARADA_COL_NAME = "Duración de parada"
     ORIGINAL_EQUIPO_COL_COL_NAME = "Equipo"
     ORIGINAL_AVISO_COL_NAME = "Aviso"
-    ORIGINAL_STATUS_SISTEMA_COL_NAME = "Status del sistema" # Added for PTBO filtering
+    ORIGINAL_STATUS_SISTEMA_COL_NAME = "Status del sistema"
 
     column_mapping = {
         ORIGINAL_EJECUTANTE_COL_NAME: "denominacion_ejecutante",
@@ -229,7 +168,6 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
         ORIGINAL_COSTOS_COL_NAME: "costes_totreales",
         ORIGINAL_DESCRIPTION_COL_NAME: "descripcion",
         ORIGINAL_FECHA_AVISO_COL_NAME: "fecha_de_aviso",
-        # ORIGINAL_TEXTO_POSICION_COL_NAME: "texto_de_posicion", # If this column exists in your data, uncomment
         ORIGINAL_TEXTO_EQUIPO_COL_NAME: "texto_equipo",
         ORIGINAL_DURACION_PARADA_COL_NAME: "duracion_de_parada",
         ORIGINAL_EQUIPO_COL_COL_NAME: "equipo",
@@ -238,7 +176,7 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
     }
 
     normalized_df_columns = []
-    for col in df.columns:
+    for col in df_loaded.columns:
         found_match = False
         for original, normalized in column_mapping.items():
             if col.strip().lower() == original.strip().lower():
@@ -254,20 +192,20 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
                 .replace(".", "")
                 .replace("á", "a").replace("é", "e").replace("í", "i").replace("ó", "o").replace("ú", "u")
             )
-    df.columns = normalized_df_columns
+    df_loaded.columns = normalized_df_columns
 
-    # Assign relevant columns to new, simplified names for easier access (from first code)
-    df['PROVEEDOR'] = df['denominacion_ejecutante']
-    df['COSTO'] = df['costes_totreales']
-    df['TIEMPO PARADA'] = pd.to_numeric(df['duracion_de_parada'], errors='coerce')
-    df['EQUIPO'] = pd.to_numeric(df['equipo'], errors='coerce')
-    df['AVISO'] = pd.to_numeric(df['aviso'], errors='coerce')
-    df['TIPO DE SERVICIO'] = df['tipo_de_servicio']
+    # Assign relevant columns to new, simplified names for easier access
+    df_loaded['PROVEEDOR'] = df_loaded['denominacion_ejecutante']
+    df_loaded['COSTO'] = df_loaded['costes_totreales']
+    df_loaded['TIEMPO PARADA'] = pd.to_numeric(df_loaded['duracion_de_parada'], errors='coerce')
+    df_loaded['EQUIPO'] = pd.to_numeric(df_loaded['equipo'], errors='coerce')
+    df_loaded['AVISO'] = pd.to_numeric(df_loaded['aviso'], errors='coerce')
+    df_loaded['TIPO DE SERVICIO'] = df_loaded['tipo_de_servicio']
 
     # Ensure 'costes_totreales' is numeric
-    df['costes_totreales'] = pd.to_numeric(df['costes_totreales'], errors='coerce')
+    df_loaded['costes_totreales'] = pd.to_numeric(df_loaded['costes_totreales'], errors='coerce').fillna(0) # Fill NaN with 0
 
-    # --- HORARIO Mapping (from first code) ---
+    # --- HORARIO Mapping ---
     horarios_dict = {
         "HORARIO_99": (17, 364.91), "HORARIO_98": (14.5, 312.78), "HORARIO_97": (9.818181818, 286.715),
         "HORARIO_96": (14.5, 312.78), "HORARIO_95": (4, 208.52), "HORARIO_93": (13.45454545, 286.715),
@@ -289,7 +227,7 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
         "HORARIO_51": (14, 338.845), "HORARIO_50": (15, 312.78), "HORARIO_5": (17, 312.78),
         "HORARIO_49": (15.27272727, 286.715), "HORARIO_48": (14.76923077, 338.845), "HORARIO_47": (14.5, 312.78),
         "HORARIO_46": (14.33333333, 312.78), "HORARIO_45": (14.16666667, 312.78), "HORARIO_44": (13.83333333, 312.78),
-        "HORARIO_43": (13.5, 312.78), "HORARIO_42": (13.91666667, 312.78), "HORARIO_41": (15, 364.91),
+        "HORARIO_43": (13.5, 312.78), "HORARIO_42": (13.916666667, 312.78), "HORARIO_41": (15, 364.91),
         "HORARIO_40": (15.81818182, 286.715), "HORARIO_4": (16.16666667, 312.78), "HORARIO_39": (15.27272727, 286.715),
         "HORARIO_38": (13.84615385, 338.845), "HORARIO_37": (15.09090909, 286.715), "HORARIO_36": (14, 364.91),
         "HORARIO_35": (14.30769231, 338.845), "HORARIO_34": (14.90909091, 286.715), "HORARIO_33": (13.55, 312.78),
@@ -315,20 +253,19 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
         "HORARIO_101": (12, 260.65), "HORARIO_100": (11.16666667, 312.78), "HORARIO_10": (6, 312.78),
         "HORARIO_1": (24, 364.91),
     }
-    df['HORARIO'] = df['texto_equipo'].str.strip().str.upper()
-    df['HORA/ DIA'] = df['HORARIO'].map(lambda x: horarios_dict.get(x, (None, None))[0])
-    df['DIAS/ AÑO'] = df['HORARIO'].map(lambda x: horarios_dict.get(x, (None, None))[1])
-    df['DIAS/ AÑO'] = pd.to_numeric(df['DIAS/ AÑO'], errors='coerce')
-    df['HORA/ DIA'] = pd.to_numeric(df['HORA/ DIA'], errors='coerce')
+    df_loaded['HORARIO'] = df_loaded['texto_equipo'].str.strip().str.upper()
+    df_loaded['HORA/ DIA'] = df_loaded['HORARIO'].map(lambda x: horarios_dict.get(x, (None, None))[0])
+    df_loaded['DIAS/ AÑO'] = df_loaded['HORARIO'].map(lambda x: horarios_dict.get(x, (None, None))[1])
+    df_loaded['DIAS/ AÑO'] = pd.to_numeric(df_loaded['DIAS/ AÑO'], errors='coerce')
+    df_loaded['HORA/ DIA'] = pd.to_numeric(df_loaded['HORA/ DIA'], errors='coerce')
 
-    # --- Initial Filtering from first code ---
     # Ensure 'EQUIPO' is not NaN for core calculations
-    df = df.dropna(subset=['EQUIPO'])
+    df_loaded = df_loaded.dropna(subset=['EQUIPO'])
 
-    # --- Additional Preprocessing for Second Code's requirements ---
-    df["fecha_de_aviso"] = pd.to_datetime(df["fecha_de_aviso"], errors="coerce")
-    df["año"] = df["fecha_de_aviso"].dt.year
-    df["mes"] = df["fecha_de_aviso"].dt.strftime("%B") # Month name, e.g., 'January'
+    # Additional Preprocessing
+    df_loaded["fecha_de_aviso"] = pd.to_datetime(df_loaded["fecha_de_aviso"], errors="coerce")
+    df_loaded["año"] = df_loaded["fecha_de_aviso"].dt.year
+    df_loaded["mes"] = df_loaded["fecha_de_aviso"].dt.strftime("%B") # Month name, e.g., 'January'
 
     def extract_description_category(description):
         if pd.isna(description):
@@ -338,8 +275,8 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
             return match.group(1)
         return "Otros"
 
-    df["description_category"] = df['descripcion'].apply(extract_description_category)
-    return df
+    df_loaded["description_category"] = df_loaded['descripcion'].apply(extract_description_category)
+    return df_loaded
 
 # --- DEFINICIÓN DE PREGUNTAS PARA EVALUACIÓN ---
 preguntas = [
@@ -461,13 +398,13 @@ rangos_detallados = {
             0: "Igual al promedio de mercado",
             -1: "Por encima del promedio de mercado"
         },
-        "Facilita llegar a una negociación (precios)": {
+        "Facilita llegar a una negociación (precios)": { # This question is in rangos_detallados but not in preguntas list, kept for consistency
             2: "Siempre está dispuesto a negociar de manera flexible",
             1: "En general muestra disposición al diálogo",
             0: "Ocasionalmente permite negociar",
             -1: "Poco o nada dispuesto a negociar"
         },
-        "Pone en consideración contratos y trabajos adjudicados en el último periodo de tiempo": {
+        "Pone en consideración contratos y trabajos adjudicados en el último periodo de tiempo": { # This question is in rangos_detallados but not in preguntas list, kept for consistency
             2: "Siempre toma en cuenta la relación comercial previa",
             1: "Generalmente considera trabajos anteriores",
             0: "Solo ocasionalmente lo toma en cuenta",
@@ -1102,7 +1039,7 @@ class EvaluacionProveedoresApp:
         for service_type in all_service_types_for_provider:
             df_sub = df_filtered_by_provider[df_filtered_by_provider['TIPO DE SERVICIO'] == service_type]
             # Use a dummy group_col if only one row for service_type is expected in results
-            # Otherwise, calculate_indicadores will return a Series, and we need to extract the value for 'service_type'
+            # Otherwise, calcular_indicadores will return a Series, and we need to extract the value for 'service_type'
             cnt, cost, mttr, mtbf, disp, rend = calcular_indicadores(df_sub, group_col='TIPO DE SERVICIO')
             
             # Extract scalar values from the Series returned by calcular_indicadores for the specific service_type
@@ -1232,7 +1169,6 @@ class EvaluacionProveedoresApp:
                                 key=unique_key,
                                 index=current_index,
                             )
-                            st.session_state['all_evaluation_widgets_map'][unique_label] = opts[selected_label] # Changed to unique_key to match pattern
                             st.session_state['all_evaluation_widgets_map'][unique_key] = opts[selected_label]
         
         # Pagination for service types within provider evaluation
@@ -1469,7 +1405,6 @@ class EvaluacionProveedoresApp:
             # In the `_display_evaluation_by_provider` method, it's `all_service_types_for_provider`.
             # We can retrieve it from the session state if needed, or simply re-calculate.
             # For simplicity, let's directly re-calculate from df_filtered_by_provider if needed here.
-            # This assumes df_filtered_by_provider is accessible or can be recreated.
             
             # Recreate all_service_types_for_provider based on the selected provider.
             # This is less efficient but ensures correctness if session state is complex.
@@ -1553,17 +1488,91 @@ if st.session_state['page'] == 'upload':
     if uploaded_file:
         st.info("Archivo cargando y procesando. Esto puede tardar unos segundos...")
         try:
-            df = load_and_merge_data(uploaded_file)
-            st.session_state['df'] = df
-            st.success("¡Datos cargados y procesados exitosamente!")
-            st.write("Vista previa de los datos:")
-            st.dataframe(df.head())
-            st.info("Ahora puedes navegar a las secciones de análisis y evaluación desde el menú lateral.")
+            # Usamos io.BytesIO para pasar el archivo como un buffer en memoria
+            file_buffer = io.BytesIO(uploaded_file.getvalue())
+            
+            # Cargar y fusionar datos (sin filtros ni transformaciones de costos aún)
+            df_raw = load_and_merge_data(file_buffer)
+            
+            # --- Procesamiento adicional fuera de la función de carga ---
+            # Guardar el DataFrame original para calcular el costo antes de deduplicación
+            df_for_cost_comparison = df_raw.copy()
+
+            # 1. Eliminar registros cuyo 'Status del sistema' contenga "PTBO"
+            initial_rows_before_ptbo = len(df_raw)
+            df_raw = df_raw[~df_raw["status_del_sistema"].str.contains("PTBO", case=False, na=False)]
+            df_for_cost_comparison = df_for_cost_comparison[~df_for_cost_comparison["status_del_sistema"].str.contains("PTBO", case=False, na=False)]
+            st.info(f"Se eliminaron {initial_rows_before_ptbo - len(df_raw)} registros con 'PTBO' en 'Status del sistema'.")
+
+            # Calcular el costo total antes de la deduplicación por aviso
+            total_cost_before_deduplication = df_for_cost_comparison['costes_totreales'].sum()
+            st.success(f"**Total de Costos Reales (Después de filtrar 'PTBO', Antes de desduplicación por Aviso):** ${total_cost_before_deduplication:,.2f} COP")
+
+            # 2. Dejar solo una fila con coste por cada aviso (transformación de costos)
+            # Esta operación puede cambiar el total de costos si un Aviso tiene múltiples entradas de costo.
+            initial_rows_after_ptbo = len(df_raw)
+            if 'aviso' in df_raw.columns and 'costes_totreales' in df_raw.columns:
+                df_raw['costes_totreales'] = df_raw.groupby('aviso')['costes_totreales'].transform(
+                    lambda x: [x.iloc[0]] + [0]*(len(x)-1) if not x.empty else x # Handle empty groups
+                )
+                df_raw['COSTO'] = df_raw['costes_totreales'] # Update the 'COSTO' alias
+                st.info(f"Se aplicó la desduplicación de costos por 'Aviso' (manteniendo solo el primer costo por Aviso y el resto en 0).")
+            else:
+                st.warning("Columnas 'aviso' o 'costes_totreales' no encontradas para la desduplicación. Este paso fue omitido.")
+
+
+            st.success("✅ Datos cargados y procesados exitosamente.")
+            st.write(f"**Filas finales (después de filtros y desduplicación):** {len(df_raw)} – **Columnas:** {len(df_raw.columns)}")
+            
+            # Calcular el costo total después de la deduplicación por aviso
+            total_cost_after_deduplication = df_raw['costes_totreales'].sum()
+            st.success(f"**Total de Costos Reales (Después de desduplicación por Aviso):** ${total_cost_after_deduplication:,.2f} COP")
+
+
+            st.markdown("---")
+            st.subheader("Vista previa de los datos procesados (primeras 10 filas):")
+            st.dataframe(df_raw.head(10)) # Mostrar más filas para una mejor vista previa
+
+            st.markdown("---")
+            st.subheader("Descarga de Datos Procesados")
+
+            # Preparar CSV para descarga
+            csv_output = df_raw.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="Descargar como CSV",
+                data=csv_output,
+                file_name="avisos_filtrados.csv",
+                mime="text/csv",
+                help="Descarga el archivo en formato CSV."
+            )
+
+            # Preparar Excel para descarga
+            excel_buffer = io.BytesIO()
+            df_raw.to_excel(excel_buffer, index=False, engine='openpyxl')
+            excel_buffer.seek(0) # Rebobinar el buffer antes de enviarlo
+            st.download_button(
+                label="Descargar como Excel",
+                data=excel_buffer,
+                file_name="avisos_filtrados.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                help="Descarga el archivo en formato XLSX."
+            )
+
+            st.markdown("---")
+            st.success("¡El procesamiento ha finalizado! Ahora puedes descargar tus datos o seguir explorando.")
+            
+            # Store the final processed DataFrame in session state
+            st.session_state['df'] = df_raw
+
             # Automatically navigate to Costos y Avisos for initial display
             navigate_to('costos_avisos')
+
         except Exception as e:
-            st.error(f"Hubo un error al procesar el archivo: {e}")
-            st.warning("Asegúrate de que el archivo Excel contenga las hojas correctas y los formatos esperados.")
+            st.error(f"❌ ¡Ups! Ocurrió un error al procesar el archivo: {e}")
+            st.warning("Por favor, verifica que el archivo subido sea `DATA2.XLSX` y tenga el formato de hojas esperado.")
+            st.exception(e) # Muestra el traceback completo para depuración
+else:
+    st.info("⬆️ Sube tu archivo `DATA2.XLSX` para empezar con el análisis.")
 
 elif st.session_state['page'] == 'costos_avisos':
     if 'df' in st.session_state and st.session_state['df'] is not None:
