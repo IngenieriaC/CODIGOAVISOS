@@ -197,26 +197,37 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
         "Texto grupo acción", "TIPO DE SERVICIO"
     ]
 
-    if 'Total general (real)' in df_iw39.columns:
-        # Renombrar la columna antes de la limpieza para mayor claridad
-        df_iw39 = df_iw39.rename(columns={'Total general (real)': 'costes_totreales'})
+     try:
+        # Hoja 2: iw39
+        df_iw39 = pd.read_excel(uploaded_file, sheet_name='iw39')
         
-        # Paso crucial: Eliminar las comas antes de la conversión a numérico
-        # Convertir a string primero para asegurar que replace funcione, y luego limpiar.
-        df_iw39['costes_totreales'] = df_iw39['costes_totreales'].astype(str).str.replace(',', '', regex=False)
-        
-        # Ahora convertir a numérico. 'coerce' manejará cualquier otro error, convirtiéndolo a NaN.
-        df_iw39['costes_totreales'] = pd.to_numeric(df_iw39['costes_totreales'], errors='coerce')
-        
-        # Filtra los NaN si no quieres incluirlos en la suma (o trátalos como 0 si prefieres sumarlos como 0)
-        # df_iw39.dropna(subset=['costes_totreales'], inplace=True) # Descomentar si quieres eliminar filas con NaN en costos
-        
-        # Aquí puedes decidir qué hacer con los NaN.
-        # Si quieres que se consideren 0 en la suma, puedes hacer:
-        df_iw39['costes_totreales'].fillna(0, inplace=True)
-    else:
-        st.warning("La hoja 'iw39' no contiene la columna 'Total general (real)'. Asegúrate de que el nombre sea exacto.")
-        df_iw39['costes_totreales'] = 0 # Asigna 0 para evitar errores si la columna no existe.
+        # Procesamiento de la columna 'Total general (real)'
+        if 'Total general (real)' in df_iw39.columns:
+            # Renombrar la columna antes de la limpieza para mayor claridad
+            df_iw39 = df_iw39.rename(columns={'Total general (real)': 'costes_totreales'})
+            
+            # Paso crucial: Eliminar las comas antes de la conversión a numérico
+            # Convertir a string primero para asegurar que replace funcione, y luego limpiar.
+            df_iw39['costes_totreales'] = df_iw39['costes_totreales'].astype(str).str.replace(',', '', regex=False)
+            
+            # Ahora convertir a numérico. 'coerce' convertirá valores no válidos a NaN.
+            df_iw39['costes_totreales'] = pd.to_numeric(df_iw39['costes_totreales'], errors='coerce')
+            
+            # Reemplazar NaN (valores no convertibles) con 0 si quieres que se sumen como cero
+            df_iw39['costes_totreales'].fillna(0, inplace=True)
+        else:
+            st.warning("La hoja 'iw39' no contiene la columna 'Total general (real)'. Se asumirá 0 para los costos de esta hoja.")
+            # Asegurarse de que la columna 'costes_totreales' exista con valores predeterminados
+            df_iw39['costes_totreales'] = 0 
+
+    except ValueError:
+        st.error("La hoja 'iw39' no se encontró en el archivo Excel. Asegúrate de que el nombre de la hoja sea 'iw39'.")
+        # Asegurarse de que df_iw39 tenga la columna 'costes_totreales' con valores predeterminados
+        # para que las fusiones posteriores no fallen.
+        df_iw39['costes_totreales'] = 0 
+    except Exception as e:
+        st.error(f"Ocurrió un error inesperado al leer la hoja 'iw39': {e}")
+        df_iw39['costes_totreales'] = 0
 
     # Filtrar solo las columnas que realmente existen en tmp4
     columnas_finales = [col for col in columnas_finales if col in tmp4.columns]
