@@ -14,7 +14,8 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
     # Icono de la página (opcional, puedes cambiar '📈' por el tuyo)
-   
+    # Abre este enlace para ver más emojis: https://www.webfx.com/tools/emoji-cheat-sheet/
+    icon="⚙️"
 )
 
 # Estilos CSS para ambientar en amarillo, blanco y azul rey
@@ -209,6 +210,11 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
 
     # Ensure 'costes_totreales' is numeric
     df['costes_totreales'] = pd.to_numeric(df['costes_totreales'], errors='coerce')
+
+    # Dejar solo una fila con coste por cada aviso - ESTA ES LA ÚNICA VEZ QUE SE APLICA ESTA LÓGICA
+    df['costes_totreales'] = df.groupby('aviso')['costes_totreales'].transform(
+        lambda x: [x.iloc[0]] + [0]*(len(x)-1)
+    )
 
     # --- HORARIO Mapping (from first code) ---
     horarios_dict = {
@@ -566,6 +572,13 @@ class CostosAvisosApp:
     def display_costos_avisos_dashboard(self):
         st.title("Análisis de Costos y Avisos")
 
+        # Display raw total cost from the loaded df before any dashboard filters
+        st.subheader("Totales de Datos Cargados (Antes de Filtros del Dashboard)")
+        st.write(f"Total de Costos Reales (Datos Cargados): ${self.df[self.COL_COSTOS_NORMALIZED].sum():,.2f} COP")
+        st.write(f"Total de Avisos Únicos (Datos Cargados): {self.df[self.COL_AVISO_NORMALIZED].nunique():,}")
+        st.markdown("---")
+
+
         # Sidebar filters for Costos y Avisos
         st.sidebar.markdown("---")
         st.sidebar.header("Filtros para Análisis")
@@ -602,19 +615,19 @@ class CostosAvisosApp:
             st.warning("No hay datos para los filtros seleccionados.")
             return
 
-        st.markdown("### Resumen General de Costos y Avisos")
+        st.markdown("### Resumen General de Costos y Avisos (Aplicando Filtros del Dashboard)")
 
-        total_costos = filtered_df_costos[self.COL_COSTOS_NORMALIZED].sum()
-        total_avisos = filtered_df_costos[self.COL_AVISO_NORMALIZED].nunique()
-        avg_costo_por_aviso = total_costos / total_avisos if total_avisos > 0 else 0
+        total_costos_filtered = filtered_df_costos[self.COL_COSTOS_NORMALIZED].sum()
+        total_avisos_filtered = filtered_df_costos[self.COL_AVISO_NORMALIZED].nunique()
+        avg_costo_por_aviso_filtered = total_costos_filtered / total_avisos_filtered if total_avisos_filtered > 0 else 0
 
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.metric("Total de Costos Reales", f"${total_costos:,.2f} COP")
+            st.metric("Total de Costos Reales", f"${total_costos_filtered:,.2f} COP")
         with col2:
-            st.metric("Total de Avisos Únicos", f"{total_avisos:,}")
+            st.metric("Total de Avisos Únicos", f"{total_avisos_filtered:,}")
         with col3:
-            st.metric("Costo Promedio por Aviso", f"${avg_costo_por_aviso:,.2f} COP")
+            st.metric("Costo Promedio por Aviso", f"${avg_costo_por_aviso_filtered:,.2f} COP")
 
         st.markdown("---")
         st.markdown("### Análisis Detallado")
@@ -1411,7 +1424,6 @@ class EvaluacionProveedoresApp:
             # This logic should retrieve the list from where `all_service_types_for_provider` was populated.
             # In the `_display_evaluation_by_provider` method, it's `all_service_types_for_provider`.
             # We can retrieve it from the session state if needed, or simply re-calculate.
-            # For simplicity, let's directly re-calculate from df_filtered_by_provider if needed here.
             
             # Recreate all_service_types_for_provider based on the selected provider.
             # This is less efficient but ensures correctness if session state is complex.
@@ -1495,17 +1507,76 @@ if st.session_state['page'] == 'upload':
     if uploaded_file:
         st.info("Archivo cargando y procesando. Esto puede tardar unos segundos...")
         try:
-            df = load_and_merge_data(uploaded_file)
-            st.session_state['df'] = df
-            st.success("¡Datos cargados y procesados exitosamente!")
-            st.write("Vista previa de los datos:")
-            st.dataframe(df.head())
-            st.info("Ahora puedes navegar a las secciones de análisis y evaluación desde el menú lateral.")
-            # Automatically navigate to Costos y Avisos for initial display
-            navigate_to('costos_avisos')
+            file_buffer = io.BytesIO(uploaded_file.getvalue())
+            df = load_and_merge_data(file_buffer)
+            
+            # --- Procesamiento adicional ---
+            # Eliminar registros cuyo 'Status del sistema' contenga "PTBO"
+            initial_rows = len(df)
+            df = df[~df["status_del_sistema"].str.contains("PTBO", case=False, na=False)]
+            st.info(f"Se eliminaron {initial_rows - len(df)} registros con 'PTBO' en 'Status del sistema'.")
+
+            # Removido: La transformación de `Costes tot.reales` a único por aviso ya se hace en `load_and_merge_data`.
+            # df['Costes tot.reales'] = df.groupby('Aviso')['Costes tot.reales'].transform(
+            #     lambda x: [x.iloc[0]] + [0]*(len(x)-1)
+            # )
+
+            st.success("✅ Datos cargados y procesados exitosamente.")
+            st.write(f"**Filas finales:** {len(df)} – **Columnas:** {len(df.columns)}")
+
+            # Asegurarse de que la columna 'costes_totreales' sea numérica y manejar NaNs
+            df['costes_totreales'] = pd.to_numeric(df['costes_totreales'], errors='coerce').fillna(0)
+
+            # --- Suma del Total de Costo Real y de Avisos para la pantalla de carga ---
+            st.markdown("---")
+            st.subheader("Resumen de Totales de Datos Cargados")
+            total_costo_real_upload = df['costes_totreales'].sum()
+            total_avisos_upload = df['aviso'].nunique()
+
+            st.metric(label="Total de Costo Real (Carga)", value=f"${total_costo_real_upload:,.2f}")
+            st.metric(label="Total de Avisos Únicos (Carga)", value=f"{total_avisos_upload:,}")
+            
+            st.session_state['df'] = df # Store the processed df in session state
+            
+            # --- Visualización y Descarga ---
+            st.markdown("---")
+            st.subheader("Vista previa de los datos procesados:")
+            st.dataframe(df.head(10)) # Mostrar más filas para una mejor vista previa
+
+            st.markdown("---")
+            st.subheader("Descarga de Datos Procesados")
+
+            # Preparar CSV para descarga
+            csv_output = df.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="Descargar como CSV",
+                data=csv_output,
+                file_name="avisos_filtrados.csv",
+                mime="text/csv",
+                help="Descarga el archivo en formato CSV."
+            )
+
+            # Preparar Excel para descarga
+            excel_buffer = io.BytesIO()
+            df.to_excel(excel_buffer, index=False, engine='openpyxl')
+            excel_buffer.seek(0) # Rebobinar el buffer antes de enviarlo
+            st.download_button(
+                label="Descargar como Excel",
+                data=excel_buffer,
+                file_name="avisos_filtrados.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                key="download_excel_upload_page" # Unique key for download button
+            )
+
+            st.markdown("---")
+            st.success("¡El procesamiento ha finalizado! Ahora puedes descargar tus datos o seguir explorando.")
+
         except Exception as e:
-            st.error(f"Hubo un error al procesar el archivo: {e}")
-            st.warning("Asegúrate de que el archivo Excel contenga las hojas correctas y los formatos esperados.")
+            st.error(f"❌ ¡Ups! Ocurrió un error al procesar el archivo: {e}")
+            st.warning("Por favor, verifica que el archivo subido sea `DATA2.XLSX` y tenga el formato de hojas esperado.")
+            st.exception(e) # Muestra el traceback completo para depuración
+else:
+    st.info("⬆️ Sube tu archivo `DATA2.XLSX` para empezar con el análisis.")
 
 elif st.session_state['page'] == 'costos_avisos':
     if 'df' in st.session_state and st.session_state['df'] is not None:
