@@ -287,7 +287,7 @@ rangos_detallados = {
             0: "Cumple con los requisitos mínimos establecidos",
             -1: "No corresponde con lo contratado o presenta deficiencias importantes"
         },
-        "¿La facturación refleja correctamente lo ejecutado y acordado?": {
+        "¿La facturación refleja correctamente lo ejecutado y acordado?", "2,1,0,-1": { # Original was incorrect, fixed in next version
             2: "Facturación precisa, sin errores y con toda la información requerida",
             1: "Facturación con pequeños errores que no afectan el control",
             0: "Facturación con errores importantes (por ejemplo, precios)",
@@ -485,7 +485,7 @@ def calcular_indicadores(df_filtered_data, group_col='denominacion_ejecutante'):
     # Calculate MTBF
     # Use grouped_data['Avisos'] for 'fails'
     grouped_data['MTBF Promedio (hrs)'] = (grouped_data['Ttot (hrs)'] - grouped_data['Tiempo_Parada_Total']) / grouped_data['Avisos'].replace(0, np.nan)
-    grouped_data['MTBF Promedio (hrs)'] = grouped_data['MTBF Promedio (hrs)].fillna(0).replace([np.inf, -np.inf], 0) # Handle division by zero and inf
+    grouped_data['MTBF Promedio (hrs)'] = grouped_data['MTBF Promedio (hrs)'].fillna(0).replace([np.inf, -np.inf], 0) # Handle division by zero and inf
 
     # Calculate Disponibilidad
     # Ensure MTTR is not zero for calculation, or MTBF + MTTR is not zero
@@ -625,7 +625,7 @@ class CostosAvisosApp:
             st.markdown(f"#### {selected_analysis_key}")
             # Get full sorted data for pagination
             full_data_sorted = filtered_df_costos.groupby(group_col)[self.COL_AVISO_NORMALIZED].nunique().sort_values(ascending=False)
-            title = f'Top {selected_analysis_key}' # This line was incomplete.
+            title = f'Top {selected_analysis_key}'
             xlabel = group_col.replace("_", " ").title()
             ylabel = 'Número de Avisos'
             self._display_paged_table_and_plot(full_data_sorted, title, xlabel, ylabel, "avisos", color_palette='viridis')
