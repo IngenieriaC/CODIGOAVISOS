@@ -1493,6 +1493,17 @@ if st.session_state['page'] == 'upload':
             
             # Cargar y fusionar datos (sin filtros ni transformaciones de costos aún)
             df_raw = load_and_merge_data(file_buffer)
+
+            # --- Información de Depuración de Costos: Antes de filtros y desduplicación ---
+            st.subheader("Información de Depuración de Costos: Estado Inicial")
+            if 'costes_totreales' in df_raw.columns:
+                st.write(f"Tipo de dato de 'costes_totreales' (inicial): `{df_raw['costes_totreales'].dtype}`")
+                st.write(f"Valores nulos en 'costes_totreales' (inicial): `{df_raw['costes_totreales'].isnull().sum()}`")
+                st.write("Primeras 5 filas de 'costes_totreales' (inicial):")
+                st.write(df_raw['costes_totreales'].head())
+            else:
+                st.warning("Columna 'costes_totreales' no encontrada después de la carga inicial.")
+
             
             # --- Procesamiento adicional fuera de la función de carga ---
             # Guardar el DataFrame original para calcular el costo antes de deduplicación
@@ -1504,13 +1515,28 @@ if st.session_state['page'] == 'upload':
             df_for_cost_comparison = df_for_cost_comparison[~df_for_cost_comparison["status_del_sistema"].str.contains("PTBO", case=False, na=False)]
             st.info(f"Se eliminaron {initial_rows_before_ptbo - len(df_raw)} registros con 'PTBO' en 'Status del sistema'.")
 
+            # --- Información de Depuración de Costos: Después de filtrar 'PTBO' ---
+            st.subheader("Información de Depuración de Costos: Después de filtro 'PTBO'")
+            if 'costes_totreales' in df_for_cost_comparison.columns:
+                st.write(f"Tipo de dato de 'costes_totreales' (post-PTBO): `{df_for_cost_comparison['costes_totreales'].dtype}`")
+                st.write(f"Valores nulos en 'costes_totreales' (post-PTBO): `{df_for_cost_comparison['costes_totreales'].isnull().sum()}`")
+                st.write("Primeras 5 filas de 'costes_totreales' (post-PTBO):")
+                st.write(df_for_cost_comparison['costes_totreales'].head())
+            else:
+                st.warning("Columna 'costes_totreales' no encontrada después del filtro 'PTBO'.")
+
             # Calcular el costo total antes de la deduplicación por aviso
             total_cost_before_deduplication = df_for_cost_comparison['costes_totreales'].sum()
             st.success(f"**Total de Costos Reales (Después de filtrar 'PTBO', Antes de desduplicación por Aviso):** ${total_cost_before_deduplication:,.2f} COP")
 
+            # Contar Avisos duplicados antes de la transformación
+            if 'aviso' in df_raw.columns:
+                num_duplicated_avisos = df_raw.duplicated(subset=['aviso']).sum()
+                st.info(f"Número de avisos duplicados (antes de la desduplicación de costos): {num_duplicated_avisos}")
+            
             # 2. Dejar solo una fila con coste por cada aviso (transformación de costos)
             # Esta operación puede cambiar el total de costos si un Aviso tiene múltiples entradas de costo.
-            initial_rows_after_ptbo = len(df_raw)
+            initial_rows_after_ptbo = len(df_raw) # This variable name is slightly confusing, it refers to length of df_raw after PTBO filter
             if 'aviso' in df_raw.columns and 'costes_totreales' in df_raw.columns:
                 df_raw['costes_totreales'] = df_raw.groupby('aviso')['costes_totreales'].transform(
                     lambda x: [x.iloc[0]] + [0]*(len(x)-1) if not x.empty else x # Handle empty groups
@@ -1519,6 +1545,16 @@ if st.session_state['page'] == 'upload':
                 st.info(f"Se aplicó la desduplicación de costos por 'Aviso' (manteniendo solo el primer costo por Aviso y el resto en 0).")
             else:
                 st.warning("Columnas 'aviso' o 'costes_totreales' no encontradas para la desduplicación. Este paso fue omitido.")
+
+            # --- Información de Depuración de Costos: Después de la desduplicación por Aviso ---
+            st.subheader("Información de Depuración de Costos: Después de desduplicación por Aviso")
+            if 'costes_totreales' in df_raw.columns:
+                st.write(f"Tipo de dato de 'costes_totreales' (final): `{df_raw['costes_totreales'].dtype}`")
+                st.write(f"Valores nulos en 'costes_totreales' (final): `{df_raw['costes_totreales'].isnull().sum()}`")
+                st.write("Primeras 5 filas de 'costes_totreales' (final):")
+                st.write(df_raw['costes_totreales'].head())
+            else:
+                st.warning("Columna 'costes_totreales' no encontrada después de la desduplicación.")
 
 
             st.success("✅ Datos cargados y procesados exitosamente.")
