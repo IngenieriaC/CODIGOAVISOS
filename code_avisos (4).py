@@ -299,8 +299,9 @@ if uploaded_file:
             st.error(f"❌ ¡Ups! Ocurrió un error al procesar el archivo: {e}")
             st.warning("Por favor, verifica que el archivo subido sea `DATA2.XLSX` y tenga el formato de hojas esperado.")
             st.exception(e) # Muestra el traceback completo para depuración
-else:
+else: # Este else ahora es parte de la cadena principal de navegación de páginas
     st.info("⬆️ Sube tu archivo `DATA2.XLSX` para empezar con el análisis.")
+
 
 # --- DEFINITION OF QUESTIONS FOR EVALUATION ---
 preguntas = [
@@ -1506,6 +1507,7 @@ with st.sidebar:
 
 
 # --- Page Logic ---
+# Todas las condiciones de página deben estar en la misma cadena if/elif/else
 if st.session_state['page'] == 'upload':
     st.title("Carga de Datos")
     st.write("Por favor, sube el archivo Excel que contiene las 5 hojas de datos (IW29, IW39, IH08, IW65, ZPM015).")
@@ -1523,11 +1525,9 @@ if st.session_state['page'] == 'upload':
             # Automatically navigate to Costos y Avisos for initial display
             navigate_to('costos_avisos')
         except Exception as e:
-            st.error(f"Hubo un error al procesar el archivo: {e}")
-            st.warning("Por favor, verifica que el archivo subido sea .XLSX` y tenga el formato de hojas esperado.")
+            st.error(f"❌ ¡Ups! Ocurrió un error al procesar el archivo: {e}")
+            st.warning("Por favor, verifica que el archivo subido sea `DATA2.XLSX` y tenga el formato de hojas esperado.")
             st.exception(e) # Muestra el traceback completo para depuración
-else:
-    st.info("⬆️ Sube tu archivo  para empezar con el análisis.")
 
 elif st.session_state['page'] == 'costos_avisos':
     if 'df' in st.session_state and st.session_state['df'] is not None:
