@@ -196,26 +196,27 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
         "Indicador ABC", "Texto código acción", "Texto de acción",
         "Texto grupo acción", "TIPO DE SERVICIO"
     ]
-    if 'Total general (real)' in df_iw39.columns:
-            # Renombrar la columna antes de la limpieza para mayor claridad
-            df_iw39 = df_iw39.rename(columns={'Total general (real)': 'costes_totreales'})
-            
-            # Paso crucial: Eliminar las comas antes de la conversión a numérico
-            # Convertir a string primero para asegurar que replace funcione, y luego limpiar.
-            df_iw39['costes_totreales'] = df_iw39['costes_totreales'].astype(str).str.replace(',', '', regex=False)
-            
-            # Ahora convertir a numérico. 'coerce' manejará cualquier otro error, convirtiéndolo a NaN.
-            df_iw39['costes_totreales'] = pd.to_numeric(df_iw39['costes_totreales'], errors='coerce')
-            
-            # Filtra los NaN si no quieres incluirlos en la suma (o trátalos como 0 si prefieres sumarlos como 0)
-            # df_iw39.dropna(subset=['costes_totreales'], inplace=True) # Descomentar si quieres eliminar filas con NaN en costos
-            
-            # Aquí puedes decidir qué hacer con los NaN.
-            # Si quieres que se consideren 0 en la suma, puedes hacer:
-            df_iw39['costes_totreales'].fillna(0, inplace=True)
-        else:
-            st.warning("La hoja 'iw39' no contiene la columna 'Total general (real)'. Asegúrate de que el nombre sea exacto.")
-            df_iw39['costes_totreales'] = 0 # Asigna 0 para evitar errores si la columna no existe.
+if 'Total general (real)' in df_iw39.columns:
+        # Renombrar la columna antes de la limpieza para mayor claridad
+        df_iw39 = df_iw39.rename(columns={'Total general (real)': 'costes_totreales'})
+        
+        # Paso crucial: Eliminar las comas antes de la conversión a numérico
+        # Convertir a string primero para asegurar que replace funcione, y luego limpiar.
+        df_iw39['costes_totreales'] = df_iw39['costes_totreales'].astype(str).str.replace(',', '', regex=False)
+        
+        # Ahora convertir a numérico. 'coerce' manejará cualquier otro error, convirtiéndolo a NaN.
+        df_iw39['costes_totreales'] = pd.to_numeric(df_iw39['costes_totreales'], errors='coerce')
+        
+        # Filtra los NaN si no quieres incluirlos en la suma (o trátalos como 0 si prefieres sumarlos como 0)
+        # df_iw39.dropna(subset=['costes_totreales'], inplace=True) # Descomentar si quieres eliminar filas con NaN en costos
+        
+        # Aquí puedes decidir qué hacer con los NaN.
+        # Si quieres que se consideren 0 en la suma, puedes hacer:
+        df_iw39['costes_totreales'].fillna(0, inplace=True)
+    else:
+        st.warning("La hoja 'iw39' no contiene la columna 'Total general (real)'. Asegúrate de que el nombre sea exacto.")
+        df_iw39['costes_totreales'] = 0 # Asigna 0 para evitar errores si la columna no existe.
+
 
     # Filtrar solo las columnas que realmente existen en tmp4
     columnas_finales = [col for col in columnas_finales if col in tmp4.columns]
