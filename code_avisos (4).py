@@ -1554,6 +1554,7 @@ if st.session_state['page'] == 'upload':
         st.info("Archivo cargando y procesando. Esto puede tardar unos segundos...")
         try:
             df = load_and_merge_data(uploaded_file)
+            initial_rows = len(df)
             df = df[~df["Status del sistema"].str.contains("PTBO", case=False, na=False)]
             st.info(f"Se eliminaron {initial_rows - len(df)} registros con 'PTBO' en 'Status del sistema'.")
             st.session_state['df'] = df
