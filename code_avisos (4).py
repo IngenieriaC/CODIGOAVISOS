@@ -323,7 +323,7 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
 
     # --- Initial Filtering from first code ---
     # Ensure 'EQUIPO' is not NaN for core calculations
-    df = df.dropna(subset=['EQUIPO'])
+    df['EQUIPO'] = df['EQUIPO'].fillna(0)
 
     # --- Additional Preprocessing for Second Code's requirements ---
     df["fecha_de_aviso"] = pd.to_datetime(df["fecha_de_aviso"], errors="coerce")
