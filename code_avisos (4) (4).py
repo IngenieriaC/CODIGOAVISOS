@@ -1264,8 +1264,6 @@ if st.session_state['page'] == 'upload':
             st.error(f"❌ ¡Ups! Ocurrió un error al procesar el archivo: {e}")
             st.warning("Por favor, verifica que el archivo subido sea `DATA2.XLSX` y tenga el formato de hojas esperado.")
             st.exception(e) # Muestra el traceback completo para depuración
-else:
-    st.info("⬆️ Sube tu archivo `DATA2.XLSX` para empezar con el análisis.")
 
 elif st.session_state['page'] == 'costos_avisos':
     if 'df' in st.session_state and st.session_state['df'] is not None:
