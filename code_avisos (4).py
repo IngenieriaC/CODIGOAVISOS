@@ -321,9 +321,7 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
     df['DIAS/ AÑO'] = pd.to_numeric(df['DIAS/ AÑO'], errors='coerce')
     df['HORA/ DIA'] = pd.to_numeric(df['HORA/ DIA'], errors='coerce')
 
-    # --- Initial Filtering from first code ---
-    # Ensure 'EQUIPO' is not NaN for core calculations
-    df = df.dropna(subset=['EQUIPO'])
+  
 
     # --- Additional Preprocessing for Second Code's requirements ---
     df["fecha_de_aviso"] = pd.to_datetime(df["fecha_de_aviso"], errors="coerce")
