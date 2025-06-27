@@ -287,7 +287,7 @@ rangos_detallados = {
             0: "Cumple con los requisitos mínimos establecidos",
             -1: "No corresponde con lo contratado o presenta deficiencias importantes"
         },
-        "¿La facturación refleja correctamente lo ejecutado y acordado?": {
+        "¿La facturación refleja correctamente lo ejecutado y acordado?": { # Corrected this line
             2: "Facturación precisa, sin errores y con toda la información requerida",
             1: "Facturación con pequeños errores que no afectan el control",
             0: "Facturación con errores importantes (por ejemplo, precios)",
