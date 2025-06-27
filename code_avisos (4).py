@@ -200,7 +200,7 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
     # Filtrar solo las columnas que realmente existen en tmp4
     columnas_finales = [col for col in columnas_finales if col in tmp4.columns]
 
-    df = tmp4[columnas_finales]
+    return tmp4[columnas_finales]
 
     # Normalize column names more robustly from code_avisos (1).py
     ORIGINAL_EJECUTANTE_COL_NAME = "Denominación ejecutante"
@@ -1554,6 +1554,17 @@ if st.session_state['page'] == 'upload':
         st.info("Archivo cargando y procesando. Esto puede tardar unos segundos...")
         try:
             df = load_and_merge_data(uploaded_file)
+            # --- Procesamiento adicional ---
+            # Eliminar registros cuyo 'Status del sistema' contenga "PTBO"
+            initial_rows = len(df)
+            df = df[~df["Status del sistema"].str.contains("PTBO", case=False, na=False)]
+            st.info(f"Se eliminaron {initial_rows - len(df)} registros con 'PTBO' en 'Status del sistema'.")
+
+            # Dejar solo una fila con coste por cada aviso
+            df['Costes tot.reales'] = df.groupby('Aviso')['Costes tot.reales'].transform(
+                lambda x: [x.iloc[0]] + [0]*(len(x)-1)
+            )
+
             st.session_state['df'] = df
             st.success("¡Datos cargados y procesados exitosamente!")
             st.write("Vista previa de los datos:")
