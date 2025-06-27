@@ -583,7 +583,7 @@ if 'page' not in st.session_state:
 # --- Sidebar navigation ---
 def navigate_to(page_name):
     st.session_state['page'] = page_name
-    st.experimental_rerun()
+    st.rerun()
 
 with st.sidebar:
     st.image("https://github.com/NaidaLopez/imagen_aplicacion_gestion_avisos/blob/main/logo_sura.png?raw=true", width=200) # Logo de Sura
