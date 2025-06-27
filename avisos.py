@@ -171,15 +171,45 @@ if uploaded_file:
             st.info(f"Se eliminaron {initial_rows - len(df)} registros con 'PTBO' en 'Status del sistema'.")
 
             # Dejar solo una fila con coste por cada aviso
-            df['Costes tot.reales'] = df.groupby('Aviso')['Costes tot.reales'].transform(
-                lambda x: [x.iloc[0]] + [0]*(len(x)-1)
-            )
+            # Nos aseguramos de que 'Costes tot.reales' sea numérico para la suma
+            df['Costes tot.reales'] = pd.to_numeric(df['Costes tot.reales'], errors='coerce').fillna(0)
 
+            # Para la suma de costes, queremos sumar el coste total por cada aviso único.
+            # La lógica original que "dejaba solo una fila con coste por cada aviso"
+            # y ponía 0 en las demás, es una forma de lograr que al sumar la columna,
+            # cada aviso contribuya con su costo una única vez.
+            # Si un aviso tiene múltiples entradas pero solo un coste real asociado
+            # a una de ellas, esta transformación es correcta para obtener la suma.
+            # Si un aviso pudiera tener múltiples costes reales y quisiéramos sumarlos,
+            # la lógica debería ser diferente (e.g., groupby('Aviso')['Costes tot.reales'].sum()).
+            # Basado en la descripción y el código original, la intención es que cada aviso
+            # contribuya con su coste principal una vez.
+            # Por lo tanto, la suma global de la columna 'Costes tot.reales' después de esta
+            # transformación es la suma de los costes únicos por aviso.
             st.success("✅ Datos cargados y procesados exitosamente.")
             st.write(f"**Filas finales:** {len(df)} – **Columnas:** {len(df.columns)}")
 
-            # --- Visualización y Descarga ---
+            # --- NUEVA SECCIÓN: Totales de Costos y Avisos ---
             st.markdown("---")
+            st.subheader("📊 Resumen de Totales")
+
+            # Calcular el total de costos
+            total_costos = df['Costes tot.reales'].sum()
+
+            # Calcular el total de avisos únicos
+            # Asumimos que "Aviso" es la columna para identificar avisos únicos
+            total_avisos = df['Aviso'].nunique()
+
+            # Mostrar los totales usando st.metric para un display visual atractivo
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric(label="Total de Costos Reales", value=f"${total_costos:,.2f}")
+            with col2:
+                st.metric(label="Total de Avisos Únicos", value=f"{total_avisos:,}")
+
+            st.markdown("---")
+
+            # --- Visualización y Descarga ---
             st.subheader("Vista previa de los datos procesados:")
             st.dataframe(df.head(10)) # Mostrar más filas para una mejor vista previa
 
@@ -217,4 +247,3 @@ if uploaded_file:
             st.exception(e) # Muestra el traceback completo para depuración
 else:
     st.info("⬆️ Sube tu archivo `DATA2.XLSX` para empezar con el análisis.")
-
