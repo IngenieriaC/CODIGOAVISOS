@@ -152,19 +152,25 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
 
     df = tmp4[columnas_finales]
 
-    # --- Processing from uploaded file's code ---
-    # Assign relevant columns to new, simplified names for easier access (from first code)
-    df['PROVEEDOR'] = df['Denominación ejecutante']
-    df['COSTO'] = df['Costes tot.reales']
-    df['TIEMPO PARADA'] = pd.to_numeric(df['Duración de parada'], errors='coerce')
-    df['EQUIPO'] = df['Equipo'] # Ensure 'Equipo' column is correctly used as is
-    df['AVISO'] = pd.to_numeric(df['Aviso'], errors='coerce')
-    df['TIPO DE SERVICIO'] = df['TIPO DE SERVICIO']
+    # Ensure 'Equipo' is not NaN for core calculations, as this is needed early
+    df = df.dropna(subset=['Equipo'])
 
-    # Ensure 'costes_totreales' is numeric
-    df['Costes tot.reales'] = pd.to_numeric(df['Costes tot.reales'], errors='coerce')
+    # Date and description category processing
+    df["Fecha de aviso"] = pd.to_datetime(df["Fecha de aviso"], errors="coerce")
+    df["año"] = df["Fecha de aviso"].dt.year
+    df["mes"] = df["Fecha de aviso"].dt.strftime("%B") # Month name, e.g., 'January'
 
-    # --- HORARIO Mapping (from first code) ---
+    def extract_description_category(description):
+        if pd.isna(description):
+            return "Otros"
+        match = re.match(r'^([A-Z]{2})/', str(description).strip())
+        if match:
+            return match.group(1)
+        return "Otros"
+
+    df["description_category"] = df['Descripción'].apply(extract_description_category)
+    
+    # HORARIO Mapping is also a core preprocessing step
     horarios_dict = {
         "HORARIO_99": (17, 364.91), "HORARIO_98": (14.5, 312.78), "HORARIO_97": (9.818181818, 286.715),
         "HORARIO_96": (14.5, 312.78), "HORARIO_95": (4, 208.52), "HORARIO_93": (13.45454545, 286.715),
@@ -212,31 +218,88 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
         "HORARIO_101": (12, 260.65), "HORARIO_100": (11.16666667, 312.78), "HORARIO_10": (6, 312.78),
         "HORARIO_1": (24, 364.91),
     }
-    df['HORARIO'] = df['Texto_equipo'].str.strip().str.upper() # Use 'Texto_equipo'
+    df['HORARIO'] = df['Texto_equipo'].str.strip().str.upper()
     df['HORA/ DIA'] = df['HORARIO'].map(lambda x: horarios_dict.get(x, (None, None))[0])
     df['DIAS/ AÑO'] = df['HORARIO'].map(lambda x: horarios_dict.get(x, (None, None))[1])
     df['DIAS/ AÑO'] = pd.to_numeric(df['DIAS/ AÑO'], errors='coerce')
     df['HORA/ DIA'] = pd.to_numeric(df['HORA/ DIA'], errors='coerce')
 
-    # --- Initial Filtering from first code ---
-    # Ensure 'EQUIPO' is not NaN for core calculations
-    df = df.dropna(subset=['Equipo']) # Use the original 'Equipo' column name
-
-    # --- Additional Preprocessing for Second Code's requirements ---
-    df["Fecha de aviso"] = pd.to_datetime(df["Fecha de aviso"], errors="coerce")
-    df["año"] = df["Fecha de aviso"].dt.year
-    df["mes"] = df["Fecha de aviso"].dt.strftime("%B") # Month name, e.g., 'January'
-
-    def extract_description_category(description):
-        if pd.isna(description):
-            return "Otros"
-        match = re.match(r'^([A-Z]{2})/', str(description).strip())
-        if match:
-            return match.group(1)
-        return "Otros"
-
-    df["description_category"] = df['Descripción'].apply(extract_description_category) # Use 'Descripción'
     return df
+
+# --- 3. Uploader y Ejecución ---
+uploaded_file = st.file_uploader("Sube tu archivo 'DATA2.XLSX' aquí", type=["xlsx"])
+
+if uploaded_file:
+    # Usamos io.BytesIO para pasar el archivo como un buffer en memoria
+    # Esto es crucial para que read_excel pueda leer múltiples hojas del mismo archivo
+    # sin tener que guardarlo en el disco del servidor de Streamlit.
+    file_buffer = io.BytesIO(uploaded_file.getvalue())
+
+    with st.spinner('Cargando y procesando datos... Esto puede tomar un momento.'):
+        try:
+            df = load_and_merge_data(file_buffer)
+
+            # --- Procesamiento adicional restaurado aquí ---
+            # Eliminar registros cuyo 'Status del sistema' contenga "PTBO"
+            initial_rows = len(df)
+            df = df[~df["Status del sistema"].str.contains("PTBO", case=False, na=False)]
+            st.info(f"Se eliminaron {initial_rows - len(df)} registros con 'PTBO' en 'Status del sistema'.")
+
+            # Dejar solo una fila con coste por cada aviso (lógica restaurada)
+            df['Costes tot.reales'] = df.groupby('Aviso')['Costes tot.reales'].transform(
+                lambda x: [x.iloc[0]] + [0]*(len(x)-1)
+            )
+
+            # Asignar columnas relevantes a nombres simplificados para facilitar el acceso
+            df['PROVEEDOR'] = df['Denominación ejecutante']
+            df['COSTO'] = df['Costes tot.reales']
+            df['TIEMPO PARADA'] = pd.to_numeric(df['Duración de parada'], errors='coerce')
+            df['EQUIPO'] = df['Equipo']
+            df['AVISO'] = pd.to_numeric(df['Aviso'], errors='coerce')
+            # 'TIPO DE SERVICIO' ya debería estar presente y correcto desde load_and_merge_data
+
+            st.success("✅ Datos cargados y procesados exitosamente.")
+            st.write(f"**Filas finales:** {len(df)} – **Columnas:** {len(df.columns)}")
+
+            # --- Visualización y Descarga ---
+            st.markdown("---")
+            st.subheader("Vista previa de los datos procesados:")
+            st.dataframe(df.head(10)) # Mostrar más filas para una mejor vista previa
+
+            st.markdown("---")
+            st.subheader("Descarga de Datos Procesados")
+
+            # Preparar CSV para descarga
+            csv_output = df.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="Descargar como CSV",
+                data=csv_output,
+                file_name="avisos_filtrados.csv",
+                mime="text/csv",
+                help="Descarga el archivo en formato CSV."
+            )
+
+            # Preparar Excel para descarga
+            excel_buffer = io.BytesIO()
+            df.to_excel(excel_buffer, index=False, engine='openpyxl')
+            excel_buffer.seek(0) # Rebobinar el buffer antes de enviarlo
+            st.download_button(
+                label="Descargar como Excel",
+                data=excel_buffer,
+                file_name="avisos_filtrados.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                help="Descarga el archivo en formato XLSX."
+            )
+
+            st.markdown("---")
+            st.success("¡El procesamiento ha finalizado! Ahora puedes descargar tus datos o seguir explorando.")
+
+        except Exception as e:
+            st.error(f"❌ ¡Ups! Ocurrió un error al procesar el archivo: {e}")
+            st.warning("Por favor, verifica que el archivo subido sea `DATA2.XLSX` y tenga el formato de hojas esperado.")
+            st.exception(e) # Muestra el traceback completo para depuración
+else:
+    st.info("⬆️ Sube tu archivo `DATA2.XLSX` para empezar con el análisis.")
 
 # --- DEFINITION OF QUESTIONS FOR EVALUATION ---
 preguntas = [
@@ -1367,7 +1430,6 @@ class EvaluacionProveedoresApp:
             # This logic should retrieve the list from where `all_service_types_for_provider` was populated.
             # In the `_display_evaluation_by_provider` method, it's `all_service_types_for_provider`.
             # We can retrieve it from the session state if needed, or simply re-calculate.
-            # For simplicity, let's directly re-calculate from df_filtered_by_provider if needed here.
             
             # Recreate all_service_types_for_provider based on the selected provider.
             # This is less efficient but ensures correctness if session state is complex.
