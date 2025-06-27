@@ -14,8 +14,7 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
     # Icono de la página (opcional, puedes cambiar '📈' por el tuyo)
-    # Abre este enlace para ver más emojis: https://www.webfx.com/tools/emoji-cheat-sheet/
-    icon="⚙️"
+   
 )
 
 # Estilos CSS para ambientar en amarillo, blanco y azul rey
