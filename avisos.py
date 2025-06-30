@@ -158,18 +158,17 @@ if uploaded_file:
             df = load_and_merge_data(file_buffer)
 
             # --- Procesamiento adicional ---
+            # Asegurarse de que la columna 'Costes tot.reales' sea numérica antes de cualquier operación
+            df['Costes tot.reales'] = pd.to_numeric(df['Costes tot.reales'], errors='coerce').fillna(0)
+
             # Eliminar registros cuyo 'Status del sistema' contenga "PTBO"
             initial_rows = len(df)
             df = df[~df["Status del sistema"].str.contains("PTBO", case=False, na=False)]
             st.info(f"Se eliminaron {initial_rows - len(df)} registros con 'PTBO' en 'Status del sistema'.")
 
-            # Dejar solo una fila con coste por cada aviso
-            # Esta operación se realiza de forma más segura para evitar el error con listas
-            # Se asigna el primer valor si existe, o 0 si no hay más valores
-            df['Costes tot.reales'] = df.groupby('Aviso')['Costes tot.reales'].transform(
-                lambda x: [x.iloc[0]] + [0] * (len(x) - 1) if len(x) > 0 else [0]
-            ).apply(lambda x: x[0] if isinstance(x, list) and len(x) > 0 else 0)
-
+            # Sumar los 'Costes tot.reales' por cada 'Aviso' y aplicarlo a todas las filas con ese 'Aviso'
+            # Esto asegura que todos los costes asociados a un aviso se sumen y no se pierdan
+            df['Costes tot.reales'] = df.groupby('Aviso')['Costes tot.reales'].transform('sum')
 
             st.success("✅ Datos cargados y procesados exitosamente.")
             st.write(f"**Filas finales:** {len(df)} – **Columnas:** {len(df.columns)}")
@@ -177,9 +176,6 @@ if uploaded_file:
             # --- Suma del Total de Costo Real y de Avisos ---
             st.markdown("---")
             st.subheader("Resumen de Totales")
-
-            # Asegurarse de que la columna 'Costes tot.reales' sea numérica y manejar NaNs
-            df['Costes tot.reales'] = pd.to_numeric(df['Costes tot.reales'], errors='coerce').fillna(0)
 
             total_costo_real = df['Costes tot.reales'].sum()
             total_avisos = df['Aviso'].nunique() # Contar avisos únicos
