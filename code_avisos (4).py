@@ -132,92 +132,67 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# --- Función de carga & unión (optimizada para Streamlit) ---
+
+# --- Función de carga (modificada para no unir) ---
 @st.cache_data
 def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
     """
-    Carga y fusiona los datos de las diferentes hojas de un archivo Excel.
+    Carga los datos de un único archivo Excel. Se asume que el archivo
+    contiene todas las columnas necesarias en una sola hoja.
 
     Args:
         uploaded_file_buffer (io.BytesIO): Buffer del archivo Excel subido por el usuario.
 
     Returns:
-        pd.DataFrame: El DataFrame combinado y limpio.
+        pd.DataFrame: El DataFrame cargado y limpio.
     """
-    # Cargar hojas directamente desde el buffer
-    iw29 = pd.read_excel(uploaded_file_buffer, sheet_name=0)
-    uploaded_file_buffer.seek(0) # Rebobinar el buffer para leer la siguiente hoja
-    iw39 = pd.read_excel(uploaded_file_buffer, sheet_name=1)
-    uploaded_file_buffer.seek(0)
-    ih08 = pd.read_excel(uploaded_file_buffer, sheet_name=2)
-    uploaded_file_buffer.seek(0)
-    iw65 = pd.read_excel(uploaded_file_buffer, sheet_name=3)
-    uploaded_file_buffer.seek(0)
-    zpm015 = pd.read_excel(uploaded_file_buffer, sheet_name=4)
+    # Cargar la primera (o única) hoja del Excel directamente
+    try:
+        df = pd.read_excel(uploaded_file_buffer, sheet_name=0)
+    except Exception as e:
+        st.error(f"No se pudo leer el archivo Excel. Asegúrate de que es un archivo .xlsx y contiene datos en la primera hoja: {e}")
+        return pd.DataFrame() # Retorna un DataFrame vacío en caso de error
 
     # Limpiar encabezados
-    for df_temp in (iw29, iw39, ih08, iw65, zpm015):
-        df_temp.columns = df_temp.columns.str.strip()
+    df.columns = df.columns.str.strip()
 
-    # Guardar "Equipo" original desde IW29 para evitar pérdida
-    equipo_original = iw29[["Aviso", "Equipo", "Duración de parada", "Descripción"]].copy()
-
-    # Extraer solo columnas necesarias de iw39 para el merge (incluyendo 'Total general (real)')
-    iw39_subset = iw39[["Aviso", "Total general (real)"]]
-
-    # Unir por 'Aviso'
-    tmp1 = pd.merge(iw29, iw39_subset, on="Aviso", how="left")
-    tmp2 = pd.merge(tmp1, iw65, on="Aviso", how="left")
-
-    # Restaurar el valor original de "Equipo" de IW29 después del merge
-    tmp2.drop(columns=["Equipo"], errors='ignore', inplace=True)
-    tmp2 = pd.merge(tmp2, equipo_original, on="Aviso", how="left")
-
-    # Unir por 'Equipo' con IH08
-    tmp3 = pd.merge(tmp2, ih08[[
-        "Equipo", "Inic.garantía prov.", "Fin garantía prov.", "Texto", "Indicador ABC", "Denominación de objeto técnico"
-    ]], on="Equipo", how="left")
-
-    # Unir por 'Equipo' con ZPM015
-    tmp4 = pd.merge(tmp3, zpm015[["Equipo", "TIPO DE SERVICIO"]], on="Equipo", how="left")
-
-    # Renombrar columnas
-    tmp4.rename(columns={
-        "Texto": "Texto_equipo",
-        "Total general (real)": "Costes tot.reales"
-    }, inplace=True)
-
-    columnas_finales = [
-        "Aviso", "Orden", "Fecha de aviso", "Código postal", "Status del sistema",
-        "Descripción", "Ubicación técnica", "Indicador", "Equipo",
-        "Denominación de objeto técnico", "Denominación ejecutante",
-        "Duración de parada", "Centro de coste", "Costes tot.reales",
+    # Columnas esperadas según tu descripción
+    # Asegúrate de que estas columnas coincidan exactamente con las de tu Excel
+    columnas_esperadas = [
+        "Aviso", "Fecha de aviso", "Código postal", "Status del sistema",
+        "Descripción", "Ubicación técnica", "Equipo", "Denominación de objeto técnico",
+        "Denominación ejecutante", "Duración de parada", "Costes tot.reales",
         "Inic.garantía prov.", "Fin garantía prov.", "Texto_equipo",
-        "Indicador ABC", "Texto código acción", "Texto de acción",
-        "Texto grupo acción", "TIPO DE SERVICIO"
+        "Texto código acción", "Texto de acción", "Texto grupo acción", "TIPO DE SERVICIO"
     ]
 
-    # Filtrar solo las columnas que realmente existen en tmp4
-    columnas_finales = [col for col in columnas_finales if col in tmp4.columns]
+    # Verificar si todas las columnas esperadas están presentes
+    missing_columns = [col for col in columnas_esperadas if col not in df.columns]
+    if missing_columns:
+        st.warning(f"Advertencia: Faltan las siguientes columnas en el archivo Excel: {', '.join(missing_columns)}. El análisis podría verse afectado.")
+        # Opcional: puedes decidir si quieres detener la ejecución o continuar con las columnas disponibles
+        # Por ahora, continuaremos y las columnas faltantes se manejarán como NaN o errores en pasos posteriores.
 
-    df = tmp4[columnas_finales]
+    # Seleccionar solo las columnas que el usuario especificó y que existen en el DataFrame
+    # Esto también manejará si hay columnas adicionales que no se necesitan
+    df = df[[col for col in columnas_esperadas if col in df.columns]].copy()
 
-    # Normalize column names more robustly from code_avisos (1).py
+
+    # Normalizar los nombres de las columnas (manteniendo la lógica existente)
     ORIGINAL_EJECUTANTE_COL_NAME = "Denominación ejecutante"
     ORIGINAL_CP_COL_NAME = "Código postal"
     ORIGINAL_OBJETO_TECNICO_COL_NAME = "Denominación de objeto técnico"
     ORIGINAL_TEXTO_CODIGO_ACCION_COL_NAME = "Texto código acción"
     ORIGINAL_TEXTO_ACCION_COL_NAME = "Texto de acción"
-    ORIGINAL_TIPO_SERVICIO_COL_NAME = "TIPO DE SERVICIO" # Changed to match actual column in ZPM015 sheet
+    ORIGINAL_TIPO_SERVICIO_COL_NAME = "TIPO DE SERVICIO"
     ORIGINAL_COSTOS_COL_NAME = "Costes tot.reales"
     ORIGINAL_DESCRIPTION_COL_NAME = "Descripción"
     ORIGINAL_FECHA_AVISO_COL_NAME = "Fecha de aviso"
-    # ORIGINAL_TEXTO_POSICION_COL_NAME = "Texto de Posición" # This is the missing column, keeping commented
     ORIGINAL_TEXTO_EQUIPO_COL_NAME = "Texto_equipo"
     ORIGINAL_DURACION_PARADA_COL_NAME = "Duración de parada"
     ORIGINAL_EQUIPO_COL_COL_NAME = "Equipo"
     ORIGINAL_AVISO_COL_NAME = "Aviso"
-    ORIGINAL_STATUS_SISTEMA_COL_NAME = "Status del sistema" # Added for PTBO filtering
+    ORIGINAL_STATUS_SISTEMA_COL_NAME = "Status del sistema"
 
     column_mapping = {
         ORIGINAL_EJECUTANTE_COL_NAME: "denominacion_ejecutante",
@@ -229,7 +204,6 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
         ORIGINAL_COSTOS_COL_NAME: "costes_totreales",
         ORIGINAL_DESCRIPTION_COL_NAME: "descripcion",
         ORIGINAL_FECHA_AVISO_COL_NAME: "fecha_de_aviso",
-        # ORIGINAL_TEXTO_POSICION_COL_NAME: "texto_de_posicion", # If this column exists in your data, uncomment
         ORIGINAL_TEXTO_EQUIPO_COL_NAME: "texto_equipo",
         ORIGINAL_DURACION_PARADA_COL_NAME: "duracion_de_parada",
         ORIGINAL_EQUIPO_COL_COL_NAME: "equipo",
@@ -246,7 +220,6 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
                 found_match = True
                 break
         if not found_match:
-            # Fallback for columns not in mapping: normalize to lowercase, replace spaces with underscores, remove periods, handle accents
             normalized_df_columns.append(
                 col.lower()
                 .strip()
@@ -256,18 +229,44 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
             )
     df.columns = normalized_df_columns
 
-    # Assign relevant columns to new, simplified names for easier access (from first code)
-    df['PROVEEDOR'] = df['denominacion_ejecutante']
-    df['COSTO'] = df['costes_totreales']
-    df['TIEMPO PARADA'] = pd.to_numeric(df['duracion_de_parada'], errors='coerce')
-    df['EQUIPO'] = pd.to_numeric(df['equipo'], errors='coerce')
-    df['AVISO'] = pd.to_numeric(df['aviso'], errors='coerce')
-    df['TIPO DE SERVICIO'] = df['tipo_de_servicio']
+    # Asignar columnas relevantes a nuevos nombres simplificados
+    # Asegúrate de que las columnas originales existan después de la normalización
+    if 'denominacion_ejecutante' in df.columns:
+        df['PROVEEDOR'] = df['denominacion_ejecutante']
+    else:
+        df['PROVEEDOR'] = np.nan # O maneja el caso de columna faltante apropiadamente
 
-    # Ensure 'costes_totreales' is numeric
-    df['costes_totreales'] = pd.to_numeric(df['costes_totreales'], errors='coerce')
+    if 'costes_totreales' in df.columns:
+        df['COSTO'] = pd.to_numeric(df['costes_totreales'], errors='coerce')
+    else:
+        df['COSTO'] = np.nan
 
-    # --- HORARIO Mapping (from first code) ---
+    if 'duracion_de_parada' in df.columns:
+        df['TIEMPO PARADA'] = pd.to_numeric(df['duracion_de_parada'], errors='coerce')
+    else:
+        df['TIEMPO PARADA'] = np.nan
+
+    if 'equipo' in df.columns:
+        df['EQUIPO'] = pd.to_numeric(df['equipo'], errors='coerce')
+        df['EQUIPO'] = df['EQUIPO'].fillna(0) # Asegurar que 'EQUIPO' no sea NaN
+    else:
+        df['EQUIPO'] = 0
+
+    if 'aviso' in df.columns:
+        df['AVISO'] = pd.to_numeric(df['aviso'], errors='coerce')
+    else:
+        df['AVISO'] = np.nan
+
+    if 'tipo_de_servicio' in df.columns:
+        df['TIPO DE SERVICIO'] = df['tipo_de_servicio']
+    else:
+        df['TIPO DE SERVICIO'] = np.nan
+
+    # Asegurar que 'costes_totreales' es numérico (volver a convertir por si acaso)
+    if 'costes_totreales' in df.columns:
+        df['costes_totreales'] = pd.to_numeric(df['costes_totreales'], errors='coerce')
+
+    # Lógica de mapeo de HORARIO (se mantiene igual si 'texto_equipo' está presente)
     horarios_dict = {
         "HORARIO_99": (17, 364.91), "HORARIO_98": (14.5, 312.78), "HORARIO_97": (9.818181818, 286.715),
         "HORARIO_96": (14.5, 312.78), "HORARIO_95": (4, 208.52), "HORARIO_93": (13.45454545, 286.715),
@@ -315,20 +314,27 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
         "HORARIO_101": (12, 260.65), "HORARIO_100": (11.16666667, 312.78), "HORARIO_10": (6, 312.78),
         "HORARIO_1": (24, 364.91),
     }
-    df['HORARIO'] = df['texto_equipo'].str.strip().str.upper()
-    df['HORA/ DIA'] = df['HORARIO'].map(lambda x: horarios_dict.get(x, (None, None))[0])
-    df['DIAS/ AÑO'] = df['HORARIO'].map(lambda x: horarios_dict.get(x, (None, None))[1])
-    df['DIAS/ AÑO'] = pd.to_numeric(df['DIAS/ AÑO'], errors='coerce')
-    df['HORA/ DIA'] = pd.to_numeric(df['HORA/ DIA'], errors='coerce')
 
-    # --- Initial Filtering from first code ---
-    # Ensure 'EQUIPO' is not NaN for core calculations
-    df = df.dropna(subset=['EQUIPO'])
+    if 'texto_equipo' in df.columns:
+        df['HORARIO'] = df['texto_equipo'].str.strip().str.upper()
+        df['HORA/ DIA'] = df['HORARIO'].map(lambda x: horarios_dict.get(x, (None, None))[0])
+        df['DIAS/ AÑO'] = df['HORARIO'].map(lambda x: horarios_dict.get(x, (None, None))[1])
+        df['DIAS/ AÑO'] = pd.to_numeric(df['DIAS/ AÑO'], errors='coerce')
+        df['HORA/ DIA'] = pd.to_numeric(df['HORA/ DIA'], errors='coerce')
+    else:
+        df['HORARIO'] = np.nan
+        df['HORA/ DIA'] = np.nan
+        df['DIAS/ AÑO'] = np.nan
 
-    # --- Additional Preprocessing for Second Code's requirements ---
-    df["fecha_de_aviso"] = pd.to_datetime(df["fecha_de_aviso"], errors="coerce")
-    df["año"] = df["fecha_de_aviso"].dt.year
-    df["mes"] = df["fecha_de_aviso"].dt.strftime("%B") # Month name, e.g., 'January'
+    # Preprocesamiento adicional para requisitos de la segunda parte del código
+    if 'fecha_de_aviso' in df.columns:
+        df["fecha_de_aviso"] = pd.to_datetime(df["fecha_de_aviso"], errors="coerce")
+        df["año"] = df["fecha_de_aviso"].dt.year
+        df["mes"] = df["fecha_de_aviso"].dt.strftime("%B")
+    else:
+        df["fecha_de_aviso"] = pd.NaT # Not a Time
+        df["año"] = np.nan
+        df["mes"] = np.nan
 
     def extract_description_category(description):
         if pd.isna(description):
@@ -338,9 +344,12 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
             return match.group(1)
         return "Otros"
 
-    df["description_category"] = df['descripcion'].apply(extract_description_category)
-    return df
+    if 'descripcion' in df.columns:
+        df["description_category"] = df['descripcion'].apply(extract_description_category)
+    else:
+        df["description_category"] = "Otros" # O un valor por defecto adecuado
 
+    return df
 # --- DEFINICIÓN DE PREGUNTAS PARA EVALUACIÓN ---
 preguntas = [
     ("Calidad", "¿Las soluciones propuestas son coherentes con el diagnóstico y causa raíz del problema?", "2,1,0,-1"),
