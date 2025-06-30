@@ -789,7 +789,7 @@ class CostosAvisosApp:
         self._plot_bar_chart(data_to_display, title, xlabel, ylabel, color_palette)
 
 
-# --- EVALUATION APP FOR STREAMLIT ---
+
 # --- EVALUATION APP FOR STREAMLIT ---
 class EvaluacionProveedoresApp:
     def __init__(self, df: pd.DataFrame):
@@ -815,6 +815,25 @@ class EvaluacionProveedoresApp:
             st.session_state['current_provider_service_type_metrics'] = {}
 
     def display_evaluation_form(self):
+         # Inicializa df_filtered_by_service desde el DataFrame principal
+        df_filtered_by_service = self.df[self.df['TIPO DE SERVICIO'] == st.session_state['selected_service_type']].copy()
+
+        # APLICAR EL FILTRO DE EQUIPO Y description_category AQUÍ
+        if not df_filtered_by_service.empty and \
+           'EQUIPO' in df_filtered_by_by_service.columns and \
+           'description_category' in df_filtered_by_service.columns:
+            # Ensure 'EQUIPO' is numeric before filtering
+            df_filtered_by_service['EQUIPO'] = pd.to_numeric(df_filtered_by_service['EQUIPO'], errors='coerce')
+            df_filtered_by_service = df_filtered_by_service[
+                (df_filtered_by_service['EQUIPO'].fillna(0) != 0) & # Filter out 0 or NaN equipment
+                (df_filtered_by_service['description_category'] != 'PR')
+            ]
+
+        if df_filtered_by_service.empty:
+            st.info(f"No se encontraron avisos para el tipo de servicio '{st.session_state['selected_service_type']}' "
+                    f"después de aplicar los criterios de exclusión (sin equipo o categoría 'PR').")
+            st.session_state['all_evaluation_widgets_map'] = {} # Clear map if no data
+            return
         st.title("Evaluación de Proveedores")
 
         st.sidebar.markdown("---")
