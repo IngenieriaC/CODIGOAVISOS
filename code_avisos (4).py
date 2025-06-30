@@ -1553,10 +1553,7 @@ if st.session_state['page'] == 'upload':
     if uploaded_file:
         st.info("Archivo cargando y procesando. Esto puede tardar unos segundos...")
         try:
-            df = load_and_merge_data(uploaded_file)
-            st.session_state['df'] = df
-            st.success("¡Datos cargados y procesados exitosamente!")
-            # --- NUEVA LÍNEA PARA DESCARGAR EXCEL ---
+             # --- NUEVA LÍNEA PARA DESCARGAR EXCEL ---
             excel_buffer = io.BytesIO()
             st.session_state['df'].to_excel(excel_buffer, index=False, engine='xlsxwriter')
             excel_buffer.seek(0) # Rebobinar el buffer al principio
@@ -1568,6 +1565,9 @@ if st.session_state['page'] == 'upload':
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
             # --- FIN NUEVA LÍNEA ---
+            df = load_and_merge_data(uploaded_file)
+            st.session_state['df'] = df
+            st.success("¡Datos cargados y procesados exitosamente!")
             st.write("Vista previa de los datos:")
             st.dataframe(df.head())
             st.info("Ahora puedes navegar a las secciones de análisis y evaluación desde el menú lateral.")
