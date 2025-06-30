@@ -612,7 +612,8 @@ class CostosAvisosApp:
             "Costos por categoría de descripción": ("description_category", self.COL_COSTOS_NORMALIZED, "costos"),
             "Avisos por categoría de descripción": ("description_category", None, "avisos"),
         }
-        
+        # Elimina filas si 'EQUIPO' es nulo Y (AND) 'descripcion' es nulo
+        df = df.dropna(subset=['EQUIPO', 'descripcion'], how='all')
         # Initialize session state for pagination in analysis
         if 'analysis_page' not in st.session_state:
             st.session_state['analysis_page'] = 0
