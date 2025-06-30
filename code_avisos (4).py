@@ -1531,7 +1531,6 @@ def navigate_to(page):
 
 # Sidebar for navigation
 with st.sidebar:
-    st.image("https://www.sura.com/blogs/wp-content/uploads/2018/02/LogoSURA.png", width=200) # Replace with actual Sura logo if available
     st.title("Menú Principal")
     if st.button("Cargar Datos", key="nav_upload"):
         navigate_to('upload')
@@ -1559,12 +1558,12 @@ if st.session_state['page'] == 'upload':
             excel_buffer.seek(0) # Rebobinar el buffer al principio
 
             st.download_button(
-            label="Descargar Datos Procesados a Excel",
-            data=excel_buffer,
-            file_name="datos_avisos_procesados.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                label="Descargar Datos Procesados a Excel",
+                data=excel_buffer,
+                file_name="datos_avisos_procesados.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
-            # --- FIN NUEVA LÍNEA ---
+            # --- FIN NUEVA LÍNEA -----
             df = load_and_merge_data(uploaded_file)
             st.session_state['df'] = df
             st.success("¡Datos cargados y procesados exitosamente!")
