@@ -1556,6 +1556,18 @@ if st.session_state['page'] == 'upload':
             df = load_and_merge_data(uploaded_file)
             st.session_state['df'] = df
             st.success("¡Datos cargados y procesados exitosamente!")
+            # --- NUEVA LÍNEA PARA DESCARGAR EXCEL ---
+            excel_buffer = io.BytesIO()
+            st.session_state['df'].to_excel(excel_buffer, index=False, engine='xlsxwriter')
+            excel_buffer.seek(0) # Rebobinar el buffer al principio
+
+            st.download_button(
+            label="Descargar Datos Procesados a Excel",
+            data=excel_buffer,
+            file_name="datos_avisos_procesados.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+            # --- FIN NUEVA LÍNEA ---
             st.write("Vista previa de los datos:")
             st.dataframe(df.head())
             st.info("Ahora puedes navegar a las secciones de análisis y evaluación desde el menú lateral.")
@@ -1572,17 +1584,7 @@ elif st.session_state['page'] == 'costos_avisos':
     else:
         st.warning("Por favor, carga los datos primero desde la sección 'Cargar Datos'.")
     
-        excel_buffer = io.BytesIO()
-        st.session_state['df'].to_excel(excel_buffer, index=False, engine='xlsxwriter')
-        excel_buffer.seek(0) # Rebobinar el buffer al principio
-
-        st.download_button(
-        label="Descargar Datos Procesados a Excel",
-        data=excel_buffer,
-        file_name="datos_avisos_procesados.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-            # --- FIN NUEVA LÍNEA ---
+       
 
 elif st.session_state['page'] == 'evaluacion':
     if 'df' in st.session_state and st.session_state['df'] is not None:
