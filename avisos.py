@@ -14,10 +14,7 @@ import io # Importamos io para manejar archivos en memoria
 # Estilos CSS para ambientar en amarillo, blanco y azul rey
 
 st.markdown(
-
-  
-
-    <style>
+  <style>
 
     /* Estilos generales del fondo con degradado */
 
