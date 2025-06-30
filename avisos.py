@@ -15,7 +15,7 @@ import io # Importamos io para manejar archivos en memoria
 
 st.markdown(
 
-    """
+  
 
     <style>
 
