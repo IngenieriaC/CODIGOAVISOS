@@ -34,8 +34,7 @@ st.set_page_config(
 
     initial_sidebar_state="expanded",
 
-    # Icono de la página (opcional, puedes cambiar '📈' por el tuyo)
-
+   
     
 
 )
@@ -152,7 +151,7 @@ st.markdown("""
 
     Aquí podrás **Unir los datos de avisos** para optimizar los procesos.
 
-    Por favor, **sube el archivo de excel con las hojas en el siguiente IW29-IW39-IH08-IW65-ZPM015 para comenzar.
+    Por favor, **sube el archivo de excel con las hojas en el siguiente IW29-IW39-IH08-IW65-ZPM015 para comenzar.Creado por Naida López Aprendiz Universitaria (2025).
 
 """)
 
