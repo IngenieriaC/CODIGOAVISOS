@@ -790,6 +790,7 @@ class CostosAvisosApp:
 
 
 # --- EVALUATION APP FOR STREAMLIT ---
+# --- EVALUATION APP FOR STREAMLIT ---
 class EvaluacionProveedoresApp:
     def __init__(self, df: pd.DataFrame):
         self.df = df
@@ -906,6 +907,26 @@ class EvaluacionProveedoresApp:
             'mtbf': mtbf_p, 'disp': disp_p, 'rend': rend_p
         }
 
+        # --- AÑADIDO: Mostrar las métricas y el resumen ---
+        st.markdown("---")
+        st.markdown("### Resumen de Métricas Clave por Proveedor para este Tipo de Servicio")
+        with st.expander("Ver Métricas por Proveedor"):
+            if all_service_providers:
+                metrics_df = pd.DataFrame({
+                    'Proveedor': all_service_providers,
+                    'Avisos': [st.session_state['current_service_type_metrics']['cnt'].get(p, 0) for p in all_service_providers],
+                    'Costo Promedio': [f"${st.session_state['current_service_type_metrics']['cost'].get(p, 0):,.2f}" for p in all_service_providers],
+                    'MTTR (Horas)': [f"{st.session_state['current_service_type_metrics']['mttr'].get(p, np.nan):.2f}" for p in all_service_providers],
+                    'MTBF (Horas)': [f"{st.session_state['current_service_type_metrics']['mtbf'].get(p, np.nan):.2f}" for p in all_service_providers],
+                    'Disponibilidad (%)': [f"{st.session_state['current_service_type_metrics']['disp'].get(p, np.nan):.2f}%" for p in all_service_providers],
+                    'Rendimiento': [st.session_state['current_service_type_metrics']['rend'].get(p, 'N/A') for p in all_service_providers]
+                }).set_index('Proveedor')
+                st.dataframe(metrics_df.fillna('N/A').transpose()) # Transpose for better readability if many providers
+            else:
+                st.info("No hay métricas disponibles para mostrar, ya que no se encontraron proveedores.")
+        # --- FIN AÑADIDO ---
+
+
         items_per_page = 5 # Number of providers to show per page
         total_providers = len(all_service_providers)
         max_page = max(0, (total_providers - 1) // items_per_page)
@@ -993,6 +1014,7 @@ class EvaluacionProveedoresApp:
                             st.markdown(f"<p style='font-size: smaller; color: grey;'>({rangos_detallados[cat][texto][val]})</p>", unsafe_allow_html=True)
                         else:
                             st.markdown(f"<p style='font-size: smaller; color: grey;'>(Valor calculado automáticamente)</p>", unsafe_allow_html=True)
+
 
                         # Store fixed value in session state to persist
                         st.session_state['all_evaluation_widgets_map'][unique_key] = val
