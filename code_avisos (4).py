@@ -1571,16 +1571,16 @@ elif st.session_state['page'] == 'costos_avisos':
         costos_avisos_app.display_costos_avisos_dashboard()
     else:
         st.warning("Por favor, carga los datos primero desde la sección 'Cargar Datos'.")
-        # --- NUEVA LÍNEA PARA DESCARGAR EXCEL ---
-            excel_buffer = io.BytesIO()
-            st.session_state['df'].to_excel(excel_buffer, index=False, engine='xlsxwriter')
-            excel_buffer.seek(0) # Rebobinar el buffer al principio
+    
+        excel_buffer = io.BytesIO()
+        st.session_state['df'].to_excel(excel_buffer, index=False, engine='xlsxwriter')
+        excel_buffer.seek(0) # Rebobinar el buffer al principio
 
-            st.download_button(
-                label="Descargar Datos Procesados a Excel",
-                data=excel_buffer,
-                file_name="datos_avisos_procesados.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        st.download_button(
+        label="Descargar Datos Procesados a Excel",
+        data=excel_buffer,
+        file_name="datos_avisos_procesados.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
             # --- FIN NUEVA LÍNEA ---
 
