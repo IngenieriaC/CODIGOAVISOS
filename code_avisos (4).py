@@ -825,7 +825,8 @@ class EvaluacionProveedoresApp:
             key='evaluation_mode_selector',
             index=0 if st.session_state['evaluation_mode'] == 'by_service_type' else 1
         )
-
+        # Filtra los avisos sin equipo (EQUIPO == 0) y sin categoría de descripción 'PR'
+        filtered_df = filtered_df[(filtered_df['EQUIPO'] != 0) & (filtered_df['description_category'] != 'PR')]
         # Update session state based on radio button selection
         new_mode = 'by_service_type' if evaluation_mode == 'Por Tipo de Servicio' else 'by_provider'
         if st.session_state['evaluation_mode'] != new_mode:
