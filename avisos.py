@@ -10,12 +10,6 @@ import re
 
 import io # Importamos io para manejar archivos en memoria
 
-# --- Configuración de la página (temática Sura) ---
-st.set_page_config(
-    page_title="2 Gestión Administrativa - Sura",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
     
 # Estilos CSS para ambientar en amarillo, blanco y azul rey
 
