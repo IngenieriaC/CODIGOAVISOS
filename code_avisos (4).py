@@ -723,7 +723,8 @@ class CostosAvisosApp:
         fig_monthly.autofmt_xdate()
         plt.title('Tendencia Mensual de Costos y Avisos')
         st.pyplot(fig_monthly)
-
+        st.write(f"Dimensiones de filtered_df_costos: {filtered_df_costos.shape}")
+        st.write(f"Suma de costos en filtered_df_costos: {filtered_df_costos[self.COL_COSTOS_NORMALIZED].sum():,.2f}")
         st.markdown("### Detalle de Datos Filtrados (Primeras 100 Filas)")
         st.dataframe(filtered_df_costos[[self.COL_AVISO_NORMALIZED, self.COL_FECHA_AVISO_NORMALIZED, 'PROVEEDOR', 'TIPO DE SERVICIO', 'descripcion', self.COL_COSTOS_NORMALIZED, 'TIEMPO PARADA']].head(100))
 
