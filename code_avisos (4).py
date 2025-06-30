@@ -1557,7 +1557,7 @@ with st.sidebar:
 # --- Page Logic ---
 if st.session_state['page'] == 'upload':
     st.title("Carga de Datos")
-    st.write("Por favor, sube el archivo Excel que contiene las 5 hojas de datos (IW29, IW39, IH08, IW65, ZPM015).")
+    st.write("Por favor, sube el archivo Excel Filtrado que contiene la información de las  5 hojas de datos (IW29, IW39, IH08, IW65, ZPM015).")
     uploaded_file = st.file_uploader("Arrastra aquí tu archivo Excel o haz clic para buscar", type=["xlsx"])
 
     if uploaded_file:
