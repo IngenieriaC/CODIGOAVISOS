@@ -393,7 +393,10 @@ def rangos_detallados(df: pd.DataFrame) -> pd.DataFrame:
 
     # Unir ambos resúmenes para mostrar juntos
     full_summary = pd.merge(cost_summary, time_summary, how='outer', left_index=True, right_index=True)
-    full_summary.fillna(0, inplace=True) # Rellenar NaN si un rango no tiene datos en una de las categorías
+
+    # CORRECCIÓN: Rellenar NaN solo en columnas numéricas para evitar TypeError con CategoricalDtype
+    numeric_cols = full_summary.select_dtypes(include=np.number).columns
+    full_summary[numeric_cols] = full_summary[numeric_cols].fillna(0)
 
     return full_summary
 
