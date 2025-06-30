@@ -131,11 +131,11 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-    # Al principio de tu script, después de las importaciones y la configuración de la página:
-    if 'df' not in st.session_state:
-        st.session_state['df'] = None
-    if 'page' not in st.session_state:
-        st.session_state['page'] = 'cargar_datos' # Página inicial
+ # Al principio de tu script, después de las importaciones y la configuración de la página:
+if 'df' not in st.session_state:
+    st.session_state['df'] = None
+if 'page' not in st.session_state:
+    st.session_state['page'] = 'cargar_datos' # Página inicial
 # --- Función de carga & unión (optimizada para Streamlit) ---
 @st.cache_data
 def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
