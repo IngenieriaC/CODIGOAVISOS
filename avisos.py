@@ -22,17 +22,6 @@ import re
 
 import io # Importamos io para manejar archivos en memoria
 
-
-
-st.set_page_config(
-    page_title="1 Gerencia de Gestión Administrativa - Sura", # Removed the invisible character here
-    layout="wide",
-    initial_sidebar_state="expanded",
-    # Icono de la página (opcional, puedes cambiar '📈' por el tuyo)
-)
-
-
-
 # Estilos CSS para ambientar en amarillo, blanco y azul rey
 
 st.markdown(
