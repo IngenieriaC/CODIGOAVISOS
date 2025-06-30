@@ -131,11 +131,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
- # Al principio de tu script, después de las importaciones y la configuración de la página:
-if 'df' not in st.session_state:
-    st.session_state['df'] = None
-if 'page' not in st.session_state:
-    st.session_state['page'] = 'cargar_datos' # Página inicial
+
 # --- Función de carga & unión (optimizada para Streamlit) ---
 @st.cache_data
 def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
@@ -325,7 +321,9 @@ def load_and_merge_data(uploaded_file_buffer: io.BytesIO) -> pd.DataFrame:
     df['DIAS/ AÑO'] = pd.to_numeric(df['DIAS/ AÑO'], errors='coerce')
     df['HORA/ DIA'] = pd.to_numeric(df['HORA/ DIA'], errors='coerce')
 
-  
+    # --- Initial Filtering from first code ---
+    # Ensure 'EQUIPO' is not NaN for core calculations
+    df = df.dropna(subset=['EQUIPO'])
 
     # --- Additional Preprocessing for Second Code's requirements ---
     df["fecha_de_aviso"] = pd.to_datetime(df["fecha_de_aviso"], errors="coerce")
@@ -616,8 +614,7 @@ class CostosAvisosApp:
             "Costos por categoría de descripción": ("description_category", self.COL_COSTOS_NORMALIZED, "costos"),
             "Avisos por categoría de descripción": ("description_category", None, "avisos"),
         }
-        # Elimina filas si 'EQUIPO' es nulo Y (AND) 'descripcion' es nulo
-        df = df.dropna(subset=['EQUIPO', 'descripcion'], how='all')
+        
         # Initialize session state for pagination in analysis
         if 'analysis_page' not in st.session_state:
             st.session_state['analysis_page'] = 0
@@ -728,8 +725,7 @@ class CostosAvisosApp:
         fig_monthly.autofmt_xdate()
         plt.title('Tendencia Mensual de Costos y Avisos')
         st.pyplot(fig_monthly)
-        st.write(f"Dimensiones de filtered_df_costos: {filtered_df_costos.shape}")
-        st.write(f"Suma de costos en filtered_df_costos: {filtered_df_costos[self.COL_COSTOS_NORMALIZED].sum():,.2f}")
+
         st.markdown("### Detalle de Datos Filtrados (Primeras 100 Filas)")
         st.dataframe(filtered_df_costos[[self.COL_AVISO_NORMALIZED, self.COL_FECHA_AVISO_NORMALIZED, 'PROVEEDOR', 'TIPO DE SERVICIO', 'descripcion', self.COL_COSTOS_NORMALIZED, 'TIEMPO PARADA']].head(100))
 
@@ -1535,6 +1531,7 @@ def navigate_to(page):
 
 # Sidebar for navigation
 with st.sidebar:
+    st.image("https://www.sura.com/blogs/wp-content/uploads/2018/02/LogoSURA.png", width=200) # Replace with actual Sura logo if available
     st.title("Menú Principal")
     if st.button("Cargar Datos", key="nav_upload"):
         navigate_to('upload')
@@ -1556,18 +1553,6 @@ if st.session_state['page'] == 'upload':
     if uploaded_file:
         st.info("Archivo cargando y procesando. Esto puede tardar unos segundos...")
         try:
-             # --- NUEVA LÍNEA PARA DESCARGAR EXCEL ---
-            excel_buffer = io.BytesIO()
-            st.session_state['df'].to_excel(excel_buffer, index=False, engine='xlsxwriter')
-            excel_buffer.seek(0) # Rebobinar el buffer al principio
-
-            st.download_button(
-                label="Descargar Datos Procesados a Excel",
-                data=excel_buffer,
-                file_name="datos_avisos_procesados.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-            # --- FIN NUEVA LÍNEA -----
             df = load_and_merge_data(uploaded_file)
             st.session_state['df'] = df
             st.success("¡Datos cargados y procesados exitosamente!")
@@ -1586,8 +1571,6 @@ elif st.session_state['page'] == 'costos_avisos':
         costos_avisos_app.display_costos_avisos_dashboard()
     else:
         st.warning("Por favor, carga los datos primero desde la sección 'Cargar Datos'.")
-    
-       
 
 elif st.session_state['page'] == 'evaluacion':
     if 'df' in st.session_state and st.session_state['df'] is not None:
