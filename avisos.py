@@ -32,7 +32,6 @@ st.set_page_config(
     # Icono de la página (opcional, puedes cambiar '📈' por el tuyo)
 
 )
-   
     
 
 )
