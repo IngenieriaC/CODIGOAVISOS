@@ -412,14 +412,14 @@ class CostosAvisosApp:
             st.warning("No hay datos para mostrar. Por favor, carga los datos primero.")
             return
 
-        st.subheader("Filtros")
-        col1, col2 = st.columns(2)
-        with col1:
+        # Mover filtros a la barra lateral
+        with st.sidebar:
+            st.subheader("Filtros de Costos y Avisos")
             selected_year = st.selectbox(
                 "Selecciona el Año",
-                options=['Todos'] + sorted(self.df['año'].dropna().unique().astype(int).tolist(), reverse=True)
+                options=['Todos'] + sorted(self.df['año'].dropna().unique().astype(int).tolist(), reverse=True),
+                key='costos_year_select' # Añadir una key única
             )
-        with col2:
             available_months = ['Todos']
             if selected_year != 'Todos':
                 available_months += sorted(self.df[self.df['año'] == selected_year]['mes'].dropna().unique().tolist())
@@ -428,8 +428,10 @@ class CostosAvisosApp:
 
             selected_month = st.selectbox(
                 "Selecciona el Mes",
-                options=available_months
+                options=available_months,
+                key='costos_month_select' # Añadir una key única
             )
+
 
         filtered_df = self.df.copy()
         if selected_year != 'Todos':
@@ -442,9 +444,9 @@ class CostosAvisosApp:
         st.subheader("Indicadores Clave")
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("Total Avisos Únicos", f"{indicadores['total_avisos']:,}")
-        col2.metric("Costo Total (€)", f"{indicadores['costo_total']:.2f}€")
+        col2.metric("Costo Total (COP)", f"{indicadores['costo_total']:,.2f} COP") # Moneda COP
         col3.metric("Tiempo de Parada Total (Horas)", f"{indicadores['tiempo_parada_total']:.2f} hrs")
-        col4.metric("Costo Promedio por Aviso (€)", f"{indicadores['costo_promedio_aviso']:.2f}€")
+        col4.metric("Costo Promedio por Aviso (COP)", f"{indicadores['costo_promedio_aviso']:,.2f} COP") # Moneda COP
 
         st.subheader("Desglose por Categoría de Descripción")
         if 'description_category' in filtered_df.columns and not filtered_df.empty:
@@ -455,7 +457,7 @@ class CostosAvisosApp:
             ).sort_values(by='Total_Costos', ascending=False).reset_index()
 
             st.dataframe(category_summary.style.format({
-                'Total_Costos': "{:.2f}€",
+                'Total_Costos': "{:,.2f} COP", # Moneda COP
                 'Total_Tiempo_Parada': "{:.2f} hrs"
             }), use_container_width=True)
 
@@ -463,7 +465,7 @@ class CostosAvisosApp:
             sns.barplot(x='description_category', y='Total_Costos', data=category_summary, ax=ax1, palette='viridis')
             ax1.set_title('Costos por Categoría de Descripción')
             ax1.set_xlabel('Categoría de Descripción')
-            ax1.set_ylabel('Costo Total (€)')
+            ax1.set_ylabel('Costo Total (COP)') # Moneda COP
             ax1.tick_params(axis='x', rotation=45)
             st.pyplot(fig1)
 
@@ -482,7 +484,7 @@ class CostosAvisosApp:
         if not filtered_df.empty:
             rangos_df = rangos_detallados(filtered_df)
             st.dataframe(rangos_df.style.format({
-                'Costo Acumulado': "{:.2f}€",
+                'Costo Acumulado': "{:,.2f} COP", # Moneda COP
                 '% Costo Acumulado': "{:.2f}%",
                 'Tiempo Parada Acumulado': "{:.2f} hrs",
                 '% Tiempo Parada Acumulado': "{:.2f}%"
@@ -508,7 +510,7 @@ class CostosAvisosApp:
                 sns.lineplot(x='Mes_Año', y='Cantidad_Avisos', data=monthly_summary, marker='x', color='red', ax=ax4, label='Cantidad de Avisos')
                 ax3.set_title('Tendencia Mensual de Costos y Cantidad de Avisos')
                 ax3.set_xlabel('Mes y Año')
-                ax3.set_ylabel('Costo Total (€)', color=sns.color_palette('viridis')[0])
+                ax3.set_ylabel('Costo Total (COP)', color=sns.color_palette('viridis')[0]) # Moneda COP
                 ax4.set_ylabel('Cantidad de Avisos', color='red')
                 fig3.legend(loc="upper left", bbox_to_anchor=(0.1,0.9))
                 ax3.tick_params(axis='x', rotation=45)
@@ -530,15 +532,14 @@ class EvaluacionProveedoresApp:
             st.warning("No hay datos para mostrar. Por favor, carga los datos primero.")
             return
 
-        st.subheader("Filtros")
-        col1, col2, col3 = st.columns(3)
-        with col1:
+        # Mover filtros a la barra lateral
+        with st.sidebar:
+            st.subheader("Filtros de Evaluación")
             selected_year = st.selectbox(
                 "Año para Evaluación",
                 options=['Todos'] + sorted(self.df['año'].dropna().unique().astype(int).tolist(), reverse=True),
                 key='eval_year_select'
             )
-        with col2:
             available_months = ['Todos']
             if selected_year != 'Todos':
                 available_months += sorted(self.df[self.df['año'] == selected_year]['mes'].dropna().unique().tolist())
@@ -550,7 +551,6 @@ class EvaluacionProveedoresApp:
                 options=available_months,
                 key='eval_month_select'
             )
-        with col3:
             # Asegurarse de que 'PROVEEDOR' existe y no está vacío
             unique_proveedores = self.df['PROVEEDOR'].dropna().unique().tolist()
             if unique_proveedores:
@@ -587,9 +587,9 @@ class EvaluacionProveedoresApp:
         ).fillna(0).sort_values(by='Costo_Total', ascending=False).reset_index()
 
         st.dataframe(proveedor_summary.style.format({
-            'Costo_Total': "{:.2f}€",
+            'Costo_Total': "{:,.2f} COP", # Moneda COP
             'Tiempo_Parada_Total': "{:.2f} hrs",
-            'Costo_Promedio_Aviso': "{:.2f}€",
+            'Costo_Promedio_Aviso': "{:,.2f} COP", # Moneda COP
             'Tiempo_Parada_Promedio_Aviso': "{:.2f} hrs"
         }), use_container_width=True)
 
@@ -606,7 +606,7 @@ class EvaluacionProveedoresApp:
                 ).fillna(0).sort_values(by='Costo_Total', ascending=False).reset_index()
                 st.write("Avisos por Tipo de Servicio:")
                 st.dataframe(service_type_summary.style.format({
-                    'Costo_Total': "{:.2f}€",
+                    'Costo_Total': "{:,.2f} COP", # Moneda COP
                     'Tiempo_Parada_Total': "{:.2f} hrs"
                 }), use_container_width=True)
             else:
@@ -620,7 +620,7 @@ class EvaluacionProveedoresApp:
                     Costo_Total=('COSTO', 'sum')
                 ).fillna(0).sort_values(by='Costo_Total', ascending=False).reset_index()
                 st.write("Avisos por Ubicación Técnica:")
-                st.dataframe(location_summary.style.format({'Costo_Total': "{:.2f}€"}), use_container_width=True)
+                st.dataframe(location_summary.style.format({'Costo_Total': "{:,.2f} COP"}), use_container_width=True) # Moneda COP
             else:
                 st.info("La columna 'ubicacion_tecnica' no está disponible para el desglose.")
 
@@ -642,7 +642,7 @@ class EvaluacionProveedoresApp:
                     sns.lineplot(x='Mes_Año', y='Cantidad_Avisos', data=monthly_prov_summary, marker='x', color='red', ax=ax_prov_twin, label='Cantidad de Avisos')
                     ax_prov.set_title(f'Tendencia Mensual de Costos y Avisos para {selected_proveedor}')
                     ax_prov.set_xlabel('Mes y Año')
-                    ax_prov.set_ylabel('Costo Total (€)', color=sns.color_palette('viridis')[0])
+                    ax_prov.set_ylabel('Costo Total (COP)', color=sns.color_palette('viridis')[0]) # Moneda COP
                     ax_prov_twin.set_ylabel('Cantidad de Avisos', color='red')
                     fig_prov.legend(loc="upper left", bbox_to_anchor=(0.1,0.9))
                     ax_prov.tick_params(axis='x', rotation=45)
