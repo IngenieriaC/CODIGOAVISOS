@@ -824,8 +824,6 @@ class EvaluacionProveedoresApp:
             key='evaluation_mode_selector',
             index=0 if st.session_state['evaluation_mode'] == 'by_service_type' else 1
         )
-        # ELIMINADA: La línea de filtro estaba aquí y causaba el error
-        # filtered_df = filtered_df[(filtered_df['EQUIPO'] != 0) & (filtered_df['description_category'] != 'PR')]
 
         # Update session state based on radio button selection
         new_mode = 'by_service_type' if evaluation_mode == 'Por Tipo de Servicio' else 'by_provider'
@@ -841,7 +839,7 @@ class EvaluacionProveedoresApp:
         if st.session_state['evaluation_mode'] == 'by_service_type':
             self._display_evaluation_by_service_type()
         elif st.session_state['evaluation_mode'] == 'by_provider':
-            self._display_evaluation_by_provider()
+            self._display_evaluation_by_provider() # This method needs to be implemented/corrected if not already.
 
     def _display_evaluation_by_service_type(self):
         st.subheader("Evaluación por Tipo de Servicio")
@@ -874,12 +872,16 @@ class EvaluacionProveedoresApp:
         # Inicializa df_filtered_by_service desde el DataFrame principal
         df_filtered_by_service = self.df[self.df['TIPO DE SERVICIO'] == st.session_state['selected_service_type']].copy()
 
-        # AÑADIDO: Aplicar los filtros para 'EQUIPO' y 'description_category' aquí
+        # APLICAR EL FILTRO DE EQUIPO Y description_category AQUÍ
         if not df_filtered_by_service.empty and \
            'EQUIPO' in df_filtered_by_service.columns and \
            'description_category' in df_filtered_by_service.columns:
-            df_filtered_by_service = df_filtered_by_service[(df_filtered_by_service['EQUIPO'] != 0) &
-                                                            (df_filtered_by_service['description_category'] != 'PR')]
+            # Ensure 'EQUIPO' is numeric before filtering
+            df_filtered_by_service['EQUIPO'] = pd.to_numeric(df_filtered_by_service['EQUIPO'], errors='coerce')
+            df_filtered_by_service = df_filtered_by_service[
+                (df_filtered_by_service['EQUIPO'].fillna(0) != 0) & # Filter out 0 or NaN equipment
+                (df_filtered_by_service['description_category'] != 'PR')
+            ]
 
         if df_filtered_by_service.empty:
             st.info(f"No se encontraron avisos para el tipo de servicio '{st.session_state['selected_service_type']}' "
@@ -992,7 +994,6 @@ class EvaluacionProveedoresApp:
                         else:
                             st.markdown(f"<p style='font-size: smaller; color: grey;'>(Valor calculado automáticamente)</p>", unsafe_allow_html=True)
 
-
                         # Store fixed value in session state to persist
                         st.session_state['all_evaluation_widgets_map'][unique_key] = val
                     else:
@@ -1040,6 +1041,7 @@ class EvaluacionProveedoresApp:
                                 index=current_index,
                             )
                             st.session_state['all_evaluation_widgets_map'][unique_key] = opts[selected_label]
+
 
     def _display_evaluation_by_provider(self):
         st.subheader("Evaluación por Proveedor")
