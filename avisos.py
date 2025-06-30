@@ -28,7 +28,7 @@ import io # Importamos io para manejar archivos en memoria
 
 st.set_page_config(
 
-    page_title=" 1 Gerencia de Gestión Administrativa - Sura",
+    page_title="Gerencia de Gestión Administrativa - Sura",
 
     layout="wide",
 
