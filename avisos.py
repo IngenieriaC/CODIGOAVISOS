@@ -216,6 +216,22 @@ if uploaded_file:
             st.markdown("---")
             st.success("¡El procesamiento ha finalizado! Ahora puedes descargar tus datos o seguir explorando.")
 
+            # --- Botón para la siguiente página ---
+            st.markdown("---")
+            st.subheader("Siguiente Paso")
+            st.markdown(
+                f'<a href="https://codigoavisos-q7pbp58bj6oegweh3ag6vo.streamlit.app/" target="_blank">'
+                f'<button style="{st.button_hover_css}">' # Reutiliza el estilo del botón
+                f'Analiza tus datos'
+                f'</button>'
+                f'</a>',
+                unsafe_allow_html=True
+            )
+            # Nota: Streamlit no tiene un botón directo para redirigir a URL externas.
+            # Se usa un st.markdown con HTML para simularlo.
+            # El estilo del botón se toma de la definición CSS de los botones de Streamlit.
+
+
         except Exception as e:
             st.error(f"❌ ¡Ups! Ocurrió un error al procesar el archivo: {e}")
             st.warning("Por favor, verifica que el archivo subido sea `BASE DE DATOS.XLSX` y tenga el formato de hojas esperado (IW29, IW39, IH08, IW65, ZPM015).")
