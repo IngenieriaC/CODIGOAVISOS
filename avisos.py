@@ -24,20 +24,11 @@ import io # Importamos io para manejar archivos en memoria
 
 
 
-# --- Configuración de la página (temática Sura) ---
-
 st.set_page_config(
-
-    page_title=" 1 Gerencia de Gestión Administrativa - Sura",
-
-    layout="wide",
-
-    initial_sidebar_state="expanded",
-
-    # Icono de la página (opcional, puedes cambiar '📈' por el tuyo)
-
-    
-
+    page_title="1 Gerencia de Gestión Administrativa - Sura", # Removed the invisible character here
+    layout="wide",
+    initial_sidebar_state="expanded",
+    # Icono de la página (opcional, puedes cambiar '📈' por el tuyo)
 )
 
 
