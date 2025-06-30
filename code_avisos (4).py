@@ -10,7 +10,7 @@ import io
 import numpy as np
 # --- Configuración de la página (temática Sura) ---
 st.set_page_config(
-    page_title="Gestión Administrativa - Sura",
+    page_title="2 Gestión Administrativa - Sura",
     layout="wide",
     initial_sidebar_state="expanded",
     # Icono de la página (opcional, puedes cambiar '📈' por el tuyo)
