@@ -21,11 +21,6 @@ st.set_page_config(
 
 )
     
-
-)
-
-
-
 # Estilos CSS para ambientar en amarillo, blanco y azul rey
 
 st.markdown(
