@@ -49,6 +49,24 @@ st.markdown(
         border-radius: 0.5rem;
         overflow: hidden; /* Asegura que las esquinas redondeadas se apliquen bien */
     }
+    /* Estilo para el botón de "Analiza tus datos" */
+    .analyze-button {
+        background-color: #4169E1;
+        color: white;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 0.5rem;
+        transition: background-color 0.3s ease;
+        text-decoration: none; /* Quita el subrayado del enlace */
+        display: inline-block; /* Permite aplicar padding y centrar */
+        text-align: center;
+        cursor: pointer;
+    }
+    .analyze-button:hover {
+        background-color: #F8D568;
+        color: #4169E1;
+        border: 1px solid #4169E1;
+    }
     </style>
     """,
     unsafe_allow_html=True
@@ -219,18 +237,14 @@ if uploaded_file:
             # --- Botón para la siguiente página ---
             st.markdown("---")
             st.subheader("Siguiente Paso")
+            # Se usa un st.markdown con HTML para simular un botón de redirección externo.
+            # Se aplica la clase CSS 'analyze-button' definida en el bloque de estilo inicial.
             st.markdown(
-                f'<a href="https://codigoavisos-q7pbp58bj6oegweh3ag6vo.streamlit.app/" target="_blank">'
-                f'<button style="{st.button_hover_css}">' # Reutiliza el estilo del botón
+                f'<a href="https://codigoavisos-q7pbp58bj6oegweh3ag6vo.streamlit.app/" target="_blank" class="analyze-button">'
                 f'Analiza tus datos'
-                f'</button>'
                 f'</a>',
                 unsafe_allow_html=True
             )
-            # Nota: Streamlit no tiene un botón directo para redirigir a URL externas.
-            # Se usa un st.markdown con HTML para simularlo.
-            # El estilo del botón se toma de la definición CSS de los botones de Streamlit.
-
 
         except Exception as e:
             st.error(f"❌ ¡Ups! Ocurrió un error al procesar el archivo: {e}")
