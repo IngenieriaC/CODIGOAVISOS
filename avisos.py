@@ -1,14 +1,3 @@
-# -*- coding: utf-8 -*-
-
-"""avisos
-
-
-
-
-
-"""
-
-
 
 import streamlit as st
 
