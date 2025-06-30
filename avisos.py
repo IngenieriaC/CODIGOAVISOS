@@ -28,13 +28,15 @@ import io # Importamos io para manejar archivos en memoria
 
 st.set_page_config(
 
-    page_title="Gerencia de Gestión Administrativa - Sura",
+    page_title=" 1 Gerencia de Gestión Administrativa - Sura",
 
     layout="wide",
 
     initial_sidebar_state="expanded",
 
-    
+    # Icono de la página (opcional, puedes cambiar '📈' por el tuyo)
+
+    
 
 )
 
@@ -150,7 +152,7 @@ st.markdown("""
 
     Aquí podrás **Unir los datos de avisos** para optimizar los procesos.
 
-    Por favor, **sube el archivo `DATA2.XLSX`** para comenzar.
+    Por favor, **sube el archivo de excel con las hojas en el siguiente IW29-IW39-IH08-IW65-ZPM015 para comenzar.
 
 """)
 
@@ -448,10 +450,10 @@ if uploaded_file:
 
             st.error(f"❌ ¡Ups! Ocurrió un error al procesar el archivo: {e}")
 
-            st.warning("Por favor, verifica que el archivo subido sea `DATA2.XLSX` y tenga el formato de hojas esperado.")
+            st.warning("Por favor, verifica que el archivo tenga el formato de hojas esperado.")
 
             st.exception(e) # Muestra el traceback completo para depuración
 
 else:
 
-    st.info("⬆️ Sube tu archivo `DATA2.XLSX` para empezar con el análisis.")
+    st.info("⬆️ Sube tu archivo  para empezar con el análisis.") 
