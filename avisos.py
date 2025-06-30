@@ -1,8 +1,5 @@
 # -*- coding: utf-8 -*-
-"""avisos
-
-
-"""
+"""avisos"""
 
 import streamlit as st
 import pandas as pd
@@ -13,11 +10,10 @@ import io # Importamos io para manejar archivos en memoria
 
 # --- Configuración de la página (temática Sura) ---
 st.set_page_config(
-    page_title=" 1 Gerencia de Gestión Administrativa - Sura",
+    page_title="1 Gerencia de Gestión Administrativa - Sura",
     layout="wide",
     initial_sidebar_state="expanded",
     # Icono de la página (opcional, puedes cambiar '📈' por el tuyo)
-    
 )
 
 # Estilos CSS para ambientar en amarillo, blanco y azul rey
@@ -168,9 +164,12 @@ if uploaded_file:
             st.info(f"Se eliminaron {initial_rows - len(df)} registros con 'PTBO' en 'Status del sistema'.")
 
             # Dejar solo una fila con coste por cada aviso
+            # Esta operación se realiza de forma más segura para evitar el error con listas
+            # Se asigna el primer valor si existe, o 0 si no hay más valores
             df['Costes tot.reales'] = df.groupby('Aviso')['Costes tot.reales'].transform(
-                lambda x: [x.iloc[0]] + [0]*(len(x)-1)
-            )
+                lambda x: [x.iloc[0]] + [0] * (len(x) - 1) if len(x) > 0 else [0]
+            ).apply(lambda x: x[0] if isinstance(x, list) and len(x) > 0 else 0)
+
 
             st.success("✅ Datos cargados y procesados exitosamente.")
             st.write(f"**Filas finales:** {len(df)} – **Columnas:** {len(df.columns)}")
@@ -221,6 +220,15 @@ if uploaded_file:
 
             st.markdown("---")
             st.success("¡El procesamiento ha finalizado! Ahora puedes descargar tus datos o seguir explorando.")
+
+            # --- Botón "Analiza tu data" ---
+            st.markdown("---")
+            st.subheader("¡Siguiente Paso!")
+            st.link_button(
+                label="Analiza tu data",
+                url="https://codigoavisos-q7pbp58bj6oegweh3ag6vo.streamlit.app/",
+                help="Haz clic para ir a la aplicación de análisis de datos."
+            )
 
         except Exception as e:
             st.error(f"❌ ¡Ups! Ocurrió un error al procesar el archivo: {e}")
